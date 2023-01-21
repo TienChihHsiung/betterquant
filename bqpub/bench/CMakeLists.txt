@@ -16,7 +16,7 @@ target_include_directories(${BENCH_PROJECT_NAME}
     PUBLIC "${PROJECT_SOURCE_DIR}/inc"
     PUBLIC "${PROJECT_SOURCE_DIR}/src"
     PUBLIC "${MYSQLCPPCONN_INC_DIR}"
-    PUBLIC "${ICEORYX_INC_DIR}"
+    PUBLIC "${ABSEIL_INC_DIR}"
     PUBLIC "${YYJSON_INC_DIR}"
     PUBLIC "${RAPIDJSON_INC_DIR}"
     PUBLIC "${NLOHMANN_JSON_INC_DIR}"
@@ -37,6 +37,7 @@ target_include_directories(${BENCH_PROJECT_NAME}
 target_link_directories(${BENCH_PROJECT_NAME}
     PUBLIC "${PROJECT_SOURCE_DIR}/lib"
     PUBLIC "${MYSQLCPPCONN_LIB_DIR}"
+    PUBLIC "${ABSEIL_LIB_DIR}"
     PUBLIC "${ICEORYX_LIB_DIR}"
     PUBLIC "${YYJSON_LIB_DIR}"
     PUBLIC "${NLOHMANN_JSON_LIB_DIR}"
@@ -61,6 +62,11 @@ target_link_libraries(${BENCH_PROJECT_NAME}
     iceoryx_binding_c
     iceoryx_posh_gateway
     iceoryx_posh_roudi
+    libabsl_raw_hash_set.a
+    libabsl_flags_reflection.a
+    libabsl_hash.a
+    libabsl_city.a
+    libabsl_low_level_hash.a
     libyyjson.a
     libfmt.a
     libbenchmark.a

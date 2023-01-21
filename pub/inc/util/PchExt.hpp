@@ -106,6 +106,8 @@
 #include <boost/xpressive/xpressive.hpp>
 #include <boost/xpressive/xpressive_dynamic.hpp>
 #include <boost/xpressive/xpressive_static.hpp>
+#define MAGIC_ENUM_RANGE_MIN 0
+#define MAGIC_ENUM_RANGE_MAX UINT8_MAX
 #include <magic_enum.hpp>
 #include <nlohmann/json.hpp>
 #include <websocketpp/client.hpp>

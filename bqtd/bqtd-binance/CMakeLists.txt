@@ -156,6 +156,7 @@ target_link_libraries(${PROJECT_NAME}
     libabsl_hash.a
     libabsl_city.a
     libabsl_low_level_hash.a
+    libboost_locale.a
     libboost_date_time.a
     libyyjson.a
     libyaml-cpp.a

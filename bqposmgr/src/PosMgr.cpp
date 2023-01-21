@@ -71,6 +71,8 @@ PosChgInfoSPtr PosMgr::updateByOrderInfoFromTDGW(const OrderInfoSPtr& orderInfo,
                                                  LockFunc lockFunc) {
   if (orderInfo->orderStatus_ != OrderStatus::PartialFilled &&
       orderInfo->orderStatus_ != OrderStatus::Filled) {
+    LOG_W("Posmgr recv rtn of order status {}",
+          magic_enum::enum_name(orderInfo->orderStatus_));
     return std::make_shared<PosChgInfo>();
   }
 
@@ -81,7 +83,11 @@ PosChgInfoSPtr PosMgr::updateByOrderInfoFromTDGW(const OrderInfoSPtr& orderInfo,
         orderInfo->symbolType_ == SymbolType::Perp ||
         orderInfo->symbolType_ == SymbolType::Futures ||
         orderInfo->symbolType_ == SymbolType::CPerp ||
-        orderInfo->symbolType_ == SymbolType::CFutures) {
+        orderInfo->symbolType_ == SymbolType::CFutures ||
+        orderInfo->symbolType_ == SymbolType::CN_MainBoard ||
+        orderInfo->symbolType_ == SymbolType::CN_SecondBoard ||
+        orderInfo->symbolType_ == SymbolType::CN_StartupBoard ||
+        orderInfo->symbolType_ == SymbolType::CN_TechBoard) {
       return updateByOrderInfo(orderInfo);
 
     } else {
@@ -442,7 +448,11 @@ Decimal PosMgr::recalcAvgOpenPrice(const OrderInfoSPtr& orderInfo,
                                    const PosInfoSPtr& origPosInfo,
                                    Decimal newPos) {
   Decimal ret = 0;
-  if (orderInfo->symbolType_ == SymbolType::Spot) {
+  if (orderInfo->symbolType_ == SymbolType::Spot ||
+      orderInfo->symbolType_ == SymbolType::CN_MainBoard ||
+      orderInfo->symbolType_ == SymbolType::CN_SecondBoard ||
+      orderInfo->symbolType_ == SymbolType::CN_StartupBoard ||
+      orderInfo->symbolType_ == SymbolType::CN_TechBoard) {
     ret = (origPosInfo->pos_ * origPosInfo->avgOpenPrice_ +
            orderInfo->lastDealSize_ * orderInfo->lastDealPrice_) /
           newPos;

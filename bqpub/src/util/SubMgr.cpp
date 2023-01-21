@@ -24,7 +24,7 @@ SubMgr::SubMgr(const std::string& appNameOfSubscriber,
       dataRecvCallback_(dataRecvCallback) {}
 
 SubMgr::~SubMgr() {
-  std::map<std::string, SHMCliSPtr> addr2SHMCliGroupCopy;
+  Addr2SHMCliGroup addr2SHMCliGroupCopy;
   {
     std::lock_guard<std::ext::spin_mutex> guard(mtxAddr2SHMCliGroup_);
     addr2SHMCliGroupCopy.insert(std::begin(addr2SHMCliGroup_),
@@ -119,7 +119,8 @@ int SubMgr::unSub(ClientChannel subscriber, const std::string& topic) {
   return 0;
 }
 
-SubscriberGroup SubMgr::getSubscriberGroupByTopicHash(TopicHash topicHash) {
+SubscriberGroup SubMgr::getSubscriberGroupByTopicHash(
+    TopicHash topicHash) const {
   SubscriberGroup ret;
   {
     std::lock_guard<std::ext::spin_mutex> guard(mtxTopicHash2SubscriberGroup_);
@@ -127,6 +128,20 @@ SubscriberGroup SubMgr::getSubscriberGroupByTopicHash(TopicHash topicHash) {
     if (iter != std::end(topicHash2SubscriberGroup_)) {
       const auto& subscriberGroup = iter->second;
       ret.assign(std::begin(subscriberGroup), std::end(subscriberGroup));
+    }
+  }
+  return ret;
+}
+
+Addr2SHMCliGroup SubMgr::getSHMCliGroup() const {
+  Addr2SHMCliGroup ret;
+  {
+    std::lock_guard<std::ext::spin_mutex> guard(mtxAddr2SHMCliGroup_);
+    for (const auto& addr2SHMClI : addr2SHMCliGroup_) {
+      const auto& shmCli = addr2SHMClI.second;
+      if (shmCli->isReady()) {
+        ret.emplace(addr2SHMClI);
+      }
     }
   }
   return ret;

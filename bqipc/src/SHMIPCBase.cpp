@@ -26,7 +26,6 @@ SHMIPCBase::SHMIPCBase(const std::string& addr,
   instance_ = fieldGroup[2];
   event_ = fieldGroup[3];
   dataRecvCallback_ = dataRecvCallback;
-  keepRunning_ = true;
   std::call_once(GetOnceFlagOfAssignAppName(), [this]() {
     iox::cxx::string<64> name(iox::cxx::TruncateToCapacity, appName_);
     iox::runtime::PoshRuntime::initRuntime(name);
@@ -40,8 +39,7 @@ SHMIPCBase::SHMIPCBase(const std::string& appName, const std::string& service,
       service_(service),
       instance_(instance),
       event_(event),
-      dataRecvCallback_(dataRecvCallback),
-      keepRunning_(true) {
+      dataRecvCallback_(dataRecvCallback) {
   std::call_once(GetOnceFlagOfAssignAppName(), [this]() {
     iox::cxx::string<64> name(iox::cxx::TruncateToCapacity, appName_);
     iox::runtime::PoshRuntime::initRuntime(name);
@@ -127,6 +125,7 @@ void SHMIPCBase::uninit() {
 
 void SHMIPCBase::start() {
   init();
+  isReady_.store(true);
   LOG_I("Start SHM IPC Channel. {} [{}]", appName_, subscriberName_);
   futureDataInSHMRecv_ =
       std::async(std::launch::async, [this]() { startDataInSHMRecvThread(); });
@@ -143,6 +142,7 @@ void SHMIPCBase::startDataInSHMRecvThread() {
 
 void SHMIPCBase::stop() {
   LOG_I("Stop SHM IPC Channel. {} [{}]", appName_, subscriberName_);
+  isReady_.store(false);
   keepRunning_.store(false);
   shutdownTrigger_->trigger();
   waitForDataInSHMRecvThreadToEnd();

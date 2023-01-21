@@ -51,15 +51,15 @@ WSCliAsyncTaskArgSPtr WSCliOfExchBinance::MakeWSCliAsyncTaskArg(
 
   const auto e = yyjson_obj_get(ret->root_, "e");
   if (yyjson_equals_str(e, EXCH_MD_TYPE_IN_QUOTE_OF_TRADES)) {
-    ret->wsMsgType_ = WSMsgType::Trades;
+    ret->wsMsgType_ = MsgType::Trades;
   } else if (yyjson_equals_str(e, EXCH_MD_TYPE_IN_QUOTE_OF_BOOKS)) {
-    ret->wsMsgType_ = WSMsgType::Books;
+    ret->wsMsgType_ = MsgType::Books;
   } else if (yyjson_equals_str(e, EXCH_MD_TYPE_IN_QUOTE_OF_TICKERS)) {
-    ret->wsMsgType_ = WSMsgType::Tickers;
+    ret->wsMsgType_ = MsgType::Tickers;
   } else if (yyjson_equals_str(e, EXCH_MD_TYPE_IN_QUOTE_OF_CANDLE)) {
-    ret->wsMsgType_ = WSMsgType::Candle;
+    ret->wsMsgType_ = MsgType::Candle;
   } else {
-    ret->wsMsgType_ = WSMsgType::Others;
+    ret->wsMsgType_ = MsgType::Others;
   }
   return ret;
 }
@@ -93,7 +93,7 @@ std::string WSCliOfExchBinance::handleMDTrades(WSCliAsyncTaskSPtr& asyncTask) {
   yyjson_val* valSize = nullptr;
   yyjson_val* valf = nullptr;
   yyjson_val* vall = nullptr;
-  yyjson_val* valTradeTs = nullptr;
+  yyjson_val* valTradeTime = nullptr;
   yyjson_val* valExchSide = nullptr;
 
   yyjson_val *valFieldName, *valFieldValue;
@@ -115,7 +115,7 @@ std::string WSCliOfExchBinance::handleMDTrades(WSCliAsyncTaskSPtr& asyncTask) {
     } else if (yyjson_equals_str(valFieldName, "l")) {
       vall = yyjson_obj_iter_get_val(valFieldName);
     } else if (yyjson_equals_str(valFieldName, "T")) {
-      valTradeTs = yyjson_obj_iter_get_val(valFieldName);
+      valTradeTime = yyjson_obj_iter_get_val(valFieldName);
     } else if (yyjson_equals_str(valFieldName, "m")) {
       valExchSide = yyjson_obj_iter_get_val(valFieldName);
     }
@@ -141,7 +141,7 @@ std::string WSCliOfExchBinance::handleMDTrades(WSCliAsyncTaskSPtr& asyncTask) {
   const auto l = yyjson_get_uint(vall);
 
   const auto exchTs = yyjson_get_uint(valExchTs) * 1000;
-  const auto tradeTs = yyjson_get_uint(valTradeTs);
+  const auto tradeTime = yyjson_get_uint(valTradeTime);
   const auto price = yyjson_get_str(valPrice);
   const auto size = yyjson_get_str(valSize);
 
@@ -159,8 +159,8 @@ std::string WSCliOfExchBinance::handleMDTrades(WSCliAsyncTaskSPtr& asyncTask) {
         strncpy(trades->mdHeader_.symbolCode_, symbolCode.c_str(),
                 sizeof(trades->mdHeader_.symbolCode_) - 1);
         trades->mdHeader_.mdType_ = MDType::Trades;
-        trades->tradeTs_ = tradeTs * 1000;
-        snprintf(trades->tradeId_, sizeof(trades->tradeId_) - 1,
+        trades->tradeTime_ = tradeTime * 1000;
+        snprintf(trades->tradeNo_, sizeof(trades->tradeNo_) - 1,
                  "%" PRIu64 "-%" PRIu64 "-%" PRIu64 "", a, f, l);
         trades->price_ = CONV(Decimal, price);
         trades->size_ = CONV(Decimal, size);
@@ -200,11 +200,11 @@ std::string WSCliOfExchBinance::handleMDTickers(WSCliAsyncTaskSPtr& asyncTask) {
   yyjson_val* vals = nullptr;
   yyjson_val* valExchTs = nullptr;
   yyjson_val* valLastPrice = nullptr;
-  yyjson_val* valOpen24h = nullptr;
-  yyjson_val* valHigh24h = nullptr;
-  yyjson_val* valLow24h = nullptr;
-  yyjson_val* valVol24h = nullptr;
-  yyjson_val* valAmt24h = nullptr;
+  yyjson_val* valOpen = nullptr;
+  yyjson_val* valHigh = nullptr;
+  yyjson_val* valLow = nullptr;
+  yyjson_val* valVol = nullptr;
+  yyjson_val* valAmt = nullptr;
 
   yyjson_val *valFieldName, *valFieldValue;
   yyjson_obj_iter iter;
@@ -217,15 +217,15 @@ std::string WSCliOfExchBinance::handleMDTickers(WSCliAsyncTaskSPtr& asyncTask) {
     } else if (yyjson_equals_str(valFieldName, "c")) {
       valLastPrice = yyjson_obj_iter_get_val(valFieldName);
     } else if (yyjson_equals_str(valFieldName, "o")) {
-      valOpen24h = yyjson_obj_iter_get_val(valFieldName);
+      valOpen = yyjson_obj_iter_get_val(valFieldName);
     } else if (yyjson_equals_str(valFieldName, "h")) {
-      valHigh24h = yyjson_obj_iter_get_val(valFieldName);
+      valHigh = yyjson_obj_iter_get_val(valFieldName);
     } else if (yyjson_equals_str(valFieldName, "l")) {
-      valLow24h = yyjson_obj_iter_get_val(valFieldName);
+      valLow = yyjson_obj_iter_get_val(valFieldName);
     } else if (yyjson_equals_str(valFieldName, "v")) {
-      valVol24h = yyjson_obj_iter_get_val(valFieldName);
+      valVol = yyjson_obj_iter_get_val(valFieldName);
     } else if (yyjson_equals_str(valFieldName, "q")) {
-      valAmt24h = yyjson_obj_iter_get_val(valFieldName);
+      valAmt = yyjson_obj_iter_get_val(valFieldName);
     }
   }
 
@@ -245,11 +245,11 @@ std::string WSCliOfExchBinance::handleMDTickers(WSCliAsyncTaskSPtr& asyncTask) {
 
   const auto exchTs = yyjson_get_uint(valExchTs) * 1000;
   const auto lastPrice = yyjson_get_str(valLastPrice);
-  const auto open24h = yyjson_get_str(valOpen24h);
-  const auto high24h = yyjson_get_str(valHigh24h);
-  const auto low24h = yyjson_get_str(valLow24h);
-  const auto vol24h = yyjson_get_str(valVol24h);
-  const auto amt24h = yyjson_get_str(valAmt24h);
+  const auto open = yyjson_get_str(valOpen);
+  const auto high = yyjson_get_str(valHigh);
+  const auto low = yyjson_get_str(valLow);
+  const auto vol = yyjson_get_str(valVol);
+  const auto amt = yyjson_get_str(valAmt);
 
   const auto [topic, topicHash] =
       MakeTopicInfo(marketCode, symbolType, symbolCode, MDType::Tickers);
@@ -266,11 +266,11 @@ std::string WSCliOfExchBinance::handleMDTickers(WSCliAsyncTaskSPtr& asyncTask) {
                 sizeof(tickers->mdHeader_.symbolCode_) - 1);
         tickers->mdHeader_.mdType_ = MDType::Tickers;
         tickers->lastPrice_ = CONV(Decimal, lastPrice);
-        tickers->open24h_ = CONV(Decimal, open24h);
-        tickers->high24h_ = CONV(Decimal, high24h);
-        tickers->low24h_ = CONV(Decimal, low24h);
-        tickers->vol24h_ = CONV(Decimal, vol24h);
-        tickers->amt24h_ = CONV(Decimal, amt24h);
+        tickers->open_ = CONV(Decimal, open);
+        tickers->high_ = CONV(Decimal, high);
+        tickers->low_ = CONV(Decimal, low);
+        tickers->vol_ = CONV(Decimal, vol);
+        tickers->amt_ = CONV(Decimal, amt);
         if (mdSvc_->saveMarketData()) {
           arg->marketDataOfUnifiedFmt_ = tickers->dataOfUnifiedFmt();
           arg->exchTs_ = exchTs;

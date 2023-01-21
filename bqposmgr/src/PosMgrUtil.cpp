@@ -19,7 +19,11 @@ Decimal calcPnlOfCloseShort(SymbolType symbolType, Decimal openPrice,
                             std::uint32_t parValue) {
   Decimal ret = 0;
 
-  if (symbolType == SymbolType::Spot) {
+  if (symbolType == SymbolType::Spot ||
+      symbolType == SymbolType::CN_MainBoard ||
+      symbolType == SymbolType::CN_SecondBoard ||
+      symbolType == SymbolType::CN_StartupBoard ||
+      symbolType == SymbolType::CN_TechBoard) {
     ret = closePos * (openPrice - closePrice);
 
   } else if (symbolType == SymbolType::Perp ||
@@ -43,7 +47,11 @@ Decimal calcPnlOfCloseLong(SymbolType symbolType, Decimal openPrice,
                            std::uint32_t parValue) {
   Decimal ret = 0;
 
-  if (symbolType == SymbolType::Spot) {
+  if (symbolType == SymbolType::Spot ||
+      symbolType == SymbolType::CN_MainBoard ||
+      symbolType == SymbolType::CN_SecondBoard ||
+      symbolType == SymbolType::CN_StartupBoard ||
+      symbolType == SymbolType::CN_TechBoard) {
     ret = closePos * (closePrice - openPrice);
 
   } else if (symbolType == SymbolType::Perp ||

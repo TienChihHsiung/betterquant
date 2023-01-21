@@ -60,6 +60,9 @@ class SHMIPCBase {
  public:
   void stop();
 
+ public:
+  bool isReady() { return isReady_.load(); }
+
  private:
   void waitForDataInSHMRecvThreadToEnd();
 
@@ -87,6 +90,7 @@ class SHMIPCBase {
   iox::popo::WaitSet<>* waitset_{nullptr};
 
   std::future<void> futureDataInSHMRecv_;
+  std::atomic_bool isReady_{false};
 };
 
 }  // namespace bq

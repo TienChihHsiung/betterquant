@@ -24,6 +24,9 @@ using DBEngSPtr = std::shared_ptr<DBEng>;
 
 namespace bq {
 
+class FeeInfoCache;
+using FeeInfoCacheSPtr = std::shared_ptr<FeeInfoCache>;
+
 class OrdMgr {
   struct TagOrderId {};
   struct KeyOrderId : boost::multi_index::composite_key<
@@ -32,6 +35,15 @@ class OrdMgr {
   using MIdxOrderId = boost::multi_index::ordered_unique<
       boost::multi_index::tag<TagOrderId>, KeyOrderId,
       boost::multi_index::composite_key_result_less<KeyOrderId::result_type>>;
+
+  struct TagExchOrderId {};
+  struct KeyExchOrderId
+      : boost::multi_index::composite_key<
+            OrderInfo, MIDX_MEMER(OrderInfo, ExchOrderId, exchOrderId_)> {};
+  using MIdxExchOrderId = boost::multi_index::ordered_non_unique<
+      boost::multi_index::tag<TagExchOrderId>, KeyExchOrderId,
+      boost::multi_index::composite_key_result_less<
+          KeyExchOrderId::result_type>>;
 
   struct TagMarketCodeExchOrderId {};
   struct KeyMarketCodeExchOrderId
@@ -42,11 +54,12 @@ class OrdMgr {
       boost::multi_index::tag<TagMarketCodeExchOrderId>,
       KeyMarketCodeExchOrderId,
       boost::multi_index::composite_key_result_less<
-          KeyMarketCodeExchOrderId ::result_type>>;
+          KeyMarketCodeExchOrderId::result_type>>;
 
   using OrderInfoGroup = boost::multi_index::multi_index_container<
       OrderInfoSPtr,
-      boost::multi_index::indexed_by<MIdxOrderId, MIdxMarketCodeExchOrderId>>;
+      boost::multi_index::indexed_by<MIdxOrderId, MIdxExchOrderId,
+                                     MIdxMarketCodeExchOrderId>>;
   using OrderInfoGroupSPtr = std::shared_ptr<OrderInfoGroup>;
 
  public:
@@ -73,6 +86,10 @@ class OrdMgr {
   std::tuple<int, OrderInfoSPtr> getOrderInfo(
       OrderId orderId, DeepClone deepClone, LockFunc lockFunc = LockFunc::True);
 
+  std::tuple<int, OrderInfoSPtr> getOrderInfoByExchOrderId(
+      ExchOrderId exchOrderId, DeepClone deepClone,
+      LockFunc lockFunc = LockFunc::True);
+
   std::tuple<int, OrderInfoSPtr> getOrderInfo(
       MarketCode marketCode, ExchOrderId exchOrderId, DeepClone deepClone,
       LockFunc lockFunc = LockFunc::True);
@@ -85,11 +102,15 @@ class OrdMgr {
   std::tuple<IsSomeFieldOfOrderUpdated, OrderInfoSPtr>
   updateByOrderInfoFromExch(const OrderInfoSPtr& orderInfoFromExch,
                             std::uint64_t noUsedToCalcPos, DeepClone deepClone,
-                            LockFunc lockFunc = LockFunc::True);
+                            LockFunc lockFunc = LockFunc::True,
+                            const FeeInfoCacheSPtr& feeInfoCache = nullptr);
 
   std::tuple<IsTheOrderCanBeUsedCalcPos, OrderInfoSPtr>
   updateByOrderInfoFromTDGW(const OrderInfoSPtr& orderInfoFromTDGW,
                             LockFunc lockFunc = LockFunc::True);
+
+  int updateExchOrderId(OrderId orderId, ExchOrderId exchOrderId,
+                        LockFunc lockFunc = LockFunc::True);
 
  private:
   OrderInfoSPtr getOrderInfo(const OrderInfoSPtr& orderInfo,

@@ -39,6 +39,7 @@ configure_file (
 aux_source_directory(src/def SRC_LIST)
 aux_source_directory(src/util SRC_LIST)
 aux_source_directory(src/db SRC_LIST)
+aux_source_directory(src/tdeng SRC_LIST)
 add_library(${PROJECT_NAME} STATIC ${SRC_LIST})
 target_link_options(${PROJECT_NAME} PUBLIC "LINKER:--copy-dt-needed-entries")
 
@@ -102,6 +103,7 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC mysqlcppconn-static
     PUBLIC libmysqlclient.a
     PUBLIC libboost_filesystem.a
+    PUBLIC libboost_locale.a
     PUBLIC libcpr.a
     PUBLIC libcurl.a
     PUBLIC libxxhash.a

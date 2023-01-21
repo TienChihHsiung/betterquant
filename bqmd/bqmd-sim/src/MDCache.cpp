@@ -25,11 +25,11 @@ namespace bq::md {
 
 int MDCache::start() {
   secOfCacheMD_ = CONFIG["secOfCacheMD"].as<std::uint32_t>(60);
-  if (secOfCacheMD_ > MAX_SEC_OF_CACHE_MD) {
+  if (secOfCacheMD_ > MAX_SEC_OF_CACHE_MD_SIM) {
     LOG_W(
         "Cache a batch of his market data failed "
         "because of secOfCacheMD greater than {}.",
-        MAX_SEC_OF_CACHE_MD);
+        MAX_SEC_OF_CACHE_MD_SIM);
     return -1;
   }
 

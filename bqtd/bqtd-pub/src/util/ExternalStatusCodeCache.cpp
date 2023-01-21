@@ -21,11 +21,16 @@ ExternalStatusCodeCache::ExternalStatusCodeCache(const db::DBEngSPtr& dbEng)
       identity2ExternalStatusCode_(
           std::make_shared<Identity2ExternalStatusCode>()) {}
 
-int ExternalStatusCodeCache::load(const std::string& marketCode,
-                                  const std::string& symbolType) {
-  auto sql = fmt::format(
-      "SELECT * FROM {} WHERE `marketCode` = '{}' AND `symbolType` = '{}'; ",
-      TBLExternalStatusCode::TableName, marketCode, symbolType);
+int ExternalStatusCodeCache::load(const std::string& apiName, UserId userId) {
+  auto sql = fmt::format("SELECT * FROM {} WHERE 1=1 ",
+                         TBLExternalStatusCode::TableName);
+
+  if (!apiName.empty()) {
+    sql = sql + fmt::format("AND `apiName` = '{}' ", apiName);
+  }
+  if (userId != 0) {
+    sql = sql + fmt::format("AND `userId` = '{}' ", userId);
+  }
 
   auto [retOfExec, tblRecSet] =
       db::TBLRecSetMaker<TBLExternalStatusCode>::ExecSql(dbEng_, sql);
@@ -38,9 +43,9 @@ int ExternalStatusCodeCache::load(const std::string& marketCode,
       std::make_shared<Identity2ExternalStatusCode>();
   for (const auto& tblRec : *tblRecSet) {
     const auto rec = tblRec.second->getRecWithAllFields();
-    const auto identity = fmt::format("{}{}{}{}{}",                          //
-                                      rec->marketCode, SEP_OF_REC_IDENTITY,  //
-                                      rec->symbolType, SEP_OF_REC_IDENTITY,  //
+    const auto identity = fmt::format("{}{}{}{}{}",                       //
+                                      rec->apiName, SEP_OF_REC_IDENTITY,  //
+                                      rec->userId, SEP_OF_REC_IDENTITY,   //
                                       rec->externalStatusCode);
     const auto hash = XXH3_64bits(identity.data(), identity.size());
     identity2ExternalStatusCode->emplace(hash, rec);
@@ -58,12 +63,12 @@ int ExternalStatusCodeCache::load(const std::string& marketCode,
 }
 
 int ExternalStatusCodeCache::getAndSetStatusCodeIfNotExists(
-    const std::string& marketCode, const std::string& symbolType,
+    const std::string& apiName, UserId userId,
     const std::string& externalStatusCode, const std::string& externalStatusMsg,
     int defaultValue) {
-  const auto identity = fmt::format("{}{}{}{}{}",                     //
-                                    marketCode, SEP_OF_REC_IDENTITY,  //
-                                    symbolType, SEP_OF_REC_IDENTITY,  //
+  const auto identity = fmt::format("{}{}{}{}{}",                  //
+                                    apiName, SEP_OF_REC_IDENTITY,  //
+                                    userId, SEP_OF_REC_IDENTITY,   //
                                     externalStatusCode);
   const auto hash = XXH3_64bits(identity.data(), identity.size());
   std::shared_ptr<db::externalStatusCode::Record> rec;
@@ -75,8 +80,8 @@ int ExternalStatusCodeCache::getAndSetStatusCodeIfNotExists(
       return iter->second->statusCode;
     } else {
       rec = std::make_shared<db::externalStatusCode::Record>();
-      rec->marketCode = marketCode;
-      rec->symbolType = symbolType;
+      rec->apiName = apiName;
+      rec->userId = userId;
       rec->externalStatusCode = externalStatusCode;
       rec->externalStatusMsg = externalStatusMsg;
       rec->statusCode = defaultValue;

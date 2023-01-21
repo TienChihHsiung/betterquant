@@ -19,30 +19,27 @@ namespace bq {
 
 enum class MDType : std::uint8_t;
 
-struct SHMIPCTask;
-using SHMIPCTaskSPtr = std::shared_ptr<SHMIPCTask>;
+using ConditionFieldGroup = std::vector<std::string>;
 
-struct StgInstInfo;
-using StgInstInfoSPtr = std::shared_ptr<StgInstInfo>;
+std::string convertTopic(const std::string& topic);
 
 std::tuple<int, std::string> GetAddrFromTopic(const std::string& appName,
                                               const std::string& topic);
 
 std::tuple<int, std::string> GetChannelFromAddr(const std::string& shmSvcAddr);
 
-AcctId GetAcctIdFromTask(const SHMIPCTaskSPtr& task);
-
-std::string convertTopic(const std::string& topic);
-
-std::string ToPrettyStr(Decimal value);
-
-std::string MakeCommonHttpBody(int statusCode, std::string data = "");
-
 std::tuple<std::string, TopicHash> MakeTopicInfo(const std::string& marketCode,
                                                  const std::string& symbolType,
                                                  const std::string& symbolCode,
                                                  MDType mdType,
                                                  const std::string& ext = "");
+
+std::uint64_t GetHashFromTask(const SHMIPCTaskSPtr& task,
+                              const ConditionFieldGroup& conditionFieldGroup);
+
+AcctId GetAcctIdFromTask(const SHMIPCTaskSPtr& task);
+
+std::string ToPrettyStr(Decimal value);
 
 void PrintLogo();
 

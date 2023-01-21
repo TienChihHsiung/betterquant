@@ -39,12 +39,14 @@ class PosSnapshot {
   const std::map<std::string, PosInfoSPtr>& getPosInfoDetail() const;
 
   std::tuple<int, PnlSPtr> queryPnl(
-      const std::string& queryCond, const std::string& quoteCurrencyForCalc,
+      const std::string& queryCond,
+      const std::string& quoteCurrencyForCalc = "USDT",
       const std::string& quoteCurrencyForConv = "USDT",
       const std::string& origQuoteCurrencyOfUBasedContract = "USDT");
 
   std::tuple<int, Key2PnlGroupSPtr> queryPnlGroupBy(
-      const std::string& groupCond, const std::string& quoteCurrencyForCalc,
+      const std::string& groupCond,
+      const std::string& quoteCurrencyForCalc = "USDT",
       const std::string& quoteCurrencyForConv = "USDT",
       const std::string& origQuoteCurrencyOfUBasedContract = "USDT");
 

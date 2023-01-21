@@ -22,6 +22,8 @@ using OrderInfoSPtr = std::shared_ptr<OrderInfo>;
 
 namespace bq::td::srv {
 
+using No2LibPath = std::map<std::size_t, boost::dll::fs::path>;
+
 class TDSrv;
 
 class TDSrvRiskPlugin;
@@ -57,8 +59,16 @@ class TDSrvRiskPluginMgr {
   int load();
 
  private:
+  std::tuple<int, No2LibPath> initNo2LibPath();
+  void initPlugIn(const No2LibPath& no2LibPath);
+
+ private:
   TDSrvRiskPluginSPtr createPlugin(std::size_t no,
                                    const boost::filesystem::path& libPath);
+
+ public:
+  void onThreadStart(std::uint32_t threadNo);
+  void onThreadExit(std::uint32_t threadNo);
 
  public:
   int onOrder(const OrderInfoSPtr& order);

@@ -1,5 +1,5 @@
 /*!
- * \file PosSnapshotImpl.cpp
+ * \file StgEngPY.cpp
  * \project BetterQuant
  *
  * \author byrnexu
@@ -43,11 +43,11 @@ using namespace boost::python;
 
 namespace bq::stg {
 
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(queryPnlOverloads, queryPnl, 2, 4)
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(queryPnlOverloads, queryPnl, 1, 4)
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(queryPnlGroupByOverloads,
-                                       queryPnlGroupBy, 2, 4)
+                                       queryPnlGroupBy, 1, 4)
 
-BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(orderOverloads, order, 7, 9)
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(orderOverloads, order, 8, 10)
 
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(queryHisMDBetween2TsOverloadsByFields,
                                        queryHisMDBetween2Ts, 6, 7)
@@ -74,8 +74,14 @@ BOOST_PYTHON_MODULE(bqstgeng) {
   enum_<MarketCode>("MarketCode")
       .value("Okex", MarketCode::Okex)
       .value("Binance", MarketCode::Binance)
-      .value("Ftx", MarketCode::Ftx)
+      .value("Coinbase", MarketCode::Coinbase)
       .value("Kraken", MarketCode::Kraken)
+      .value("SSE", MarketCode::SSE)
+      .value("SZSE", MarketCode::SZSE)
+      .value("SHFE", MarketCode::SHFE)
+      .value("ZCE", MarketCode::ZCE)
+      .value("DCE", MarketCode::DCE)
+      .value("CFFEX", MarketCode::CFFEX)
       .value("Others", MarketCode::Others);
 
   // enum SymbolType
@@ -87,6 +93,30 @@ BOOST_PYTHON_MODULE(bqstgeng) {
       .value("CPerp", SymbolType::CPerp)
       .value("Option", SymbolType::Option)
       .value("Index", SymbolType::index)
+      .value("CN_MainBoard", SymbolType::CN_MainBoard)
+      .value("CN_SecondBoard", SymbolType::CN_SecondBoard)
+      .value("CN_StartupBoard", SymbolType::CN_StartupBoard)
+      .value("CN_Index", SymbolType::CN_Index)
+      .value("CN_TechBoard", SymbolType::CN_TechBoard)
+      .value("CN_StateBond", SymbolType::CN_StateBond)
+      .value("CN_EnterpriseBond", SymbolType::CN_EnterpriseBond)
+      .value("CN_CompanyBond", SymbolType::CN_CompanyBond)
+      .value("CN_ConvertableBond", SymbolType::CN_ConvertableBond)
+      .value("CN_NationalBondReverseRepo ",
+             SymbolType::CN_NationalBondReverseRepo)
+      .value("CN_ETF_SingleMarketStock", SymbolType::CN_ETF_SingleMarketStock)
+      .value("CN_ETF_InterMarketStock", SymbolType::CN_ETF_InterMarketStock)
+      .value("CN_ETF_CrossBorderStock", SymbolType::CN_ETF_CrossBorderStock)
+      .value("CN_ETF_SingleMarketBond", SymbolType::CN_ETF_SingleMarketBond)
+      .value("CN_ETF_Gold", SymbolType::CN_ETF_Gold)
+      .value("CN_StructuredFundChild", SymbolType::CN_StructuredFundChild)
+      .value("CN_SZSE_RecreationFund", SymbolType::CN_SZSE_RecreationFund)
+      .value("CN_StockOption", SymbolType::CN_StockOption)
+      .value("CN_ETF_Option", SymbolType::CN_ETF_Option)
+      .value("CN_Allotment", SymbolType::CN_Allotment)
+      .value("CN_MoneyMonetaryFundSHCR", SymbolType::CN_MoneyMonetaryFundSHCR)
+      .value("CN_MonetaryFundSHTR", SymbolType::CN_MonetaryFundSHTR)
+      .value("CN_MonetaryFundSZ", SymbolType::CN_MonetaryFundSZ)
       .value("Others", SymbolType::Others);
 
   // enum Side
@@ -118,6 +148,7 @@ BOOST_PYTHON_MODULE(bqstgeng) {
   // enum MDType
   enum_<MDType>("MDType")
       .value("Trades", MDType::Trades)
+      .value("Orders", MDType::Orders)
       .value("Books", MDType::Books)
       .value("Tickers", MDType::Tickers)
       .value("Candle", MDType::Candle)
@@ -192,6 +223,14 @@ BOOST_PYTHON_MODULE(bqstgeng) {
       .def_readwrite("order_type", &OrderInfo::orderType_)
       .def_readwrite("order_type_extra", &OrderInfo::orderTypeExtra_)
       .def_readwrite("order_time", &OrderInfo::orderTime_)
+#ifdef SIMED_MODE
+      .add_property(
+          "simed_td_info",
+          static_cast<array_ref<char> (*)(OrderInfo*)>([](OrderInfo* obj) {
+            return array_ref<char>(obj->simedTDInfo_);
+          }),
+          "Data bytes array of simedtdinfo")
+#endif
       .def_readwrite("fee_", &OrderInfo::fee_)
       .add_property(
           "fee_currency",
@@ -369,8 +408,8 @@ BOOST_PYTHON_MODULE(bqstgeng) {
 
   using RetOfOrder = std::tuple<int, OrderId>;
   using OrderByFields = RetOfOrder (StgEng::*)(
-      const StgInstInfoSPtr&, AcctId, const std::string&, Side, PosSide,
-      Decimal, Decimal, AlgoId, const SimedTDInfoSPtr&);
+      const StgInstInfoSPtr&, AcctId, MarketCode, const std::string&, Side,
+      PosSide, Decimal, Decimal, AlgoId, const SimedTDInfoSPtr&);
   using OrderByOrderInfo = RetOfOrder (StgEng::*)(OrderInfoSPtr&);
 
   class_<RetOfOrder>("ret_of_order", init<int, OrderId>())
@@ -417,9 +456,9 @@ BOOST_PYTHON_MODULE(bqstgeng) {
       .def("run", &StgEng::run)
       .def<OrderByFields>(
           "order", &StgEng::order,
-          orderOverloads(args("stg_inst_info", "acct_id", "symbol_code", "side",
-                              "pos_side", "order_price", "order_size",
-                              "algo_id", "simed_td_info")))
+          orderOverloads(args("stg_inst_info", "acct_id", "market_code",
+                              "symbol_code", "side", "pos_side", "order_price",
+                              "order_size", "algo_id", "simed_td_info")))
       .def<OrderByOrderInfo>("order", &StgEng::order, args("order_info"))
       .def("cancel_order", &StgEng::cancelOrder, args("order_id"))
       .def("get_order_info", &StgEng::getOrderInfo, args("order_id"))

@@ -99,11 +99,13 @@ target_link_directories(${PROJECT_NAME}
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_link_libraries(${PROJECT_NAME}
       bqpub-d
+      bqipc-d
       pub-d
       )
 else()
     target_link_libraries(${PROJECT_NAME}
       bqpub
+      bqipc
       pub
       )
 endif()

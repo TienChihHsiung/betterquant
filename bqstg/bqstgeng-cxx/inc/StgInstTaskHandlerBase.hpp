@@ -57,6 +57,9 @@ class StgInstTaskHandlerBase {
   virtual void onTrades(const StgInstInfoSPtr& stgInstInfo,
                         const TradesSPtr& trades) {}
 
+  virtual void onOrders(const StgInstInfoSPtr& stgInstInfo,
+                        const OrdersSPtr& orders) {}
+
   virtual void onBooks(const StgInstInfoSPtr& stgInstInfo,
                        const BooksSPtr& books) {}
 

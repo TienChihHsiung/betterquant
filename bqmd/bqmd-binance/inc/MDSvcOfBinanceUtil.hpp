@@ -41,19 +41,19 @@ inline std::tuple<int, std::string> GetExchMDType(
   }
 
   const auto mdType = topicFieldGroup[4];
-  if (mdType == ENUM_VALUE_TO_STR(MDType::Candle)) {
+  if (mdType == ENUM_TO_STR(MDType::Candle)) {
     const auto exchMDType = EXCH_MD_TYPE_CANDLE;
     return {0, exchMDType};
 
-  } else if (mdType == ENUM_VALUE_TO_STR(MDType::Books)) {
+  } else if (mdType == ENUM_TO_STR(MDType::Books)) {
     const auto exchMDType = CONFIG["defaultExchMDTypeBooks"].as<std::string>();
     return {0, exchMDType};
 
-  } else if (mdType == ENUM_VALUE_TO_STR(MDType::Tickers)) {
+  } else if (mdType == ENUM_TO_STR(MDType::Tickers)) {
     const auto exchMDType = EXCH_MD_TYPE_TICKERS;
     return {0, exchMDType};
 
-  } else if (mdType == ENUM_VALUE_TO_STR(MDType::Trades)) {
+  } else if (mdType == ENUM_TO_STR(MDType::Trades)) {
     const auto exchMDType = EXCH_MD_TYPE_TRADES;
     return {0, exchMDType};
 
@@ -84,19 +84,19 @@ inline std::tuple<int, std::string> GetExchMDType(
  */
 inline std::tuple<int, std::string> GetMDType(const std::string& exchMDType) {
   if (exchMDType == EXCH_MD_TYPE_CANDLE) {
-    const auto mdType = ENUM_VALUE_TO_STR(MDType::Candle);
+    const auto mdType = ENUM_TO_STR(MDType::Candle);
     return {0, mdType};
 
   } else if (boost::starts_with(exchMDType, EXCH_MD_TYPE_BOOKS_PREFIX)) {
-    const auto mdType = ENUM_VALUE_TO_STR(MDType::Books);
+    const auto mdType = ENUM_TO_STR(MDType::Books);
     return {0, mdType};
 
   } else if (exchMDType == EXCH_MD_TYPE_TICKERS) {
-    const auto mdType = ENUM_VALUE_TO_STR(MDType::Tickers);
+    const auto mdType = ENUM_TO_STR(MDType::Tickers);
     return {0, mdType};
 
   } else if (exchMDType == EXCH_MD_TYPE_TRADES) {
-    const auto mdType = ENUM_VALUE_TO_STR(MDType::Trades);
+    const auto mdType = ENUM_TO_STR(MDType::Trades);
     return {0, mdType};
 
   } else {
@@ -110,26 +110,26 @@ inline std::tuple<int, std::string> GetMDType(const std::string& exchMDType) {
 inline std::tuple<int, std::string> GetMDTypeInQuote(
     const std::string& exchMDType) {
   if (exchMDType == EXCH_MD_TYPE_IN_QUOTE_OF_CANDLE) {
-    const auto mdType = ENUM_VALUE_TO_STR(MDType::Candle);
+    const auto mdType = ENUM_TO_STR(MDType::Candle);
     return {0, mdType};
 
   } else if (boost::starts_with(exchMDType, EXCH_MD_TYPE_IN_QUOTE_OF_BOOKS)) {
-    const auto mdType = ENUM_VALUE_TO_STR(MDType::Books);
+    const auto mdType = ENUM_TO_STR(MDType::Books);
     return {0, mdType};
 
   } else if (exchMDType == EXCH_MD_TYPE_IN_QUOTE_OF_TICKERS) {
-    const auto mdType = ENUM_VALUE_TO_STR(MDType::Tickers);
+    const auto mdType = ENUM_TO_STR(MDType::Tickers);
     return {0, mdType};
 
   } else if (exchMDType == EXCH_MD_TYPE_IN_QUOTE_OF_TRADES) {
-    const auto mdType = ENUM_VALUE_TO_STR(MDType::Trades);
+    const auto mdType = ENUM_TO_STR(MDType::Trades);
     return {0, mdType};
 
   } else {
     const auto statusMsg =
         fmt::format("Recv unknown exch market data type {}.", exchMDType);
     LOG_W(statusMsg);
-    return {-1, ENUM_VALUE_TO_STR(MDType::Others)};
+    return {-1, ENUM_TO_STR(MDType::Others)};
   }
 }
 

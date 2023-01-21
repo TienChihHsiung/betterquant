@@ -40,14 +40,21 @@ using ScheduleTaskSPtr = std::shared_ptr<ScheduleTask>;
 using ScheduleTaskBundle = std::vector<ScheduleTaskSPtr>;
 using ScheduleTaskBundleSPtr = std::shared_ptr<ScheduleTaskBundle>;
 
-struct TaskOfSync;
-using TaskOfSyncSPtr = std::shared_ptr<TaskOfSync>;
+struct SyncTask;
+using SyncTaskSPtr = std::shared_ptr<SyncTask>;
 
 enum class SyncToRiskMgr;
 enum class SyncToDB;
+
+class FlowCtrlRuleMgr;
+using FlowCtrlRuleMgrSPtr = std::shared_ptr<FlowCtrlRuleMgr>;
+
+using ConditionFieldGroup = std::vector<std::string>;
 }  // namespace bq
 
 namespace bq::db {
+class TBLMonitorOfFlowCtrlRule;
+using TBLMonitorOfFlowCtrlRuleSPtr = std::shared_ptr<TBLMonitorOfFlowCtrlRule>;
 class TBLMonitorOfSymbolInfo;
 using TBLMonitorOfSymbolInfoSPtr = std::shared_ptr<TBLMonitorOfSymbolInfo>;
 }  // namespace bq::db
@@ -79,7 +86,9 @@ class TDSrv : public SvcBase {
 
  private:
   int initDBEng();
+  void initTBLMonitorOfFlowCtrlRule();
   void initTBLMonitorOfSymbolInfo();
+  void initFlowCtrlRuleMgr();
   void initPosMgr();
   void initAssetsMgr();
   void initOrdMgr();
@@ -96,11 +105,15 @@ class TDSrv : public SvcBase {
  public:
   db::DBEngSPtr getDBEng() const { return dbEng_; }
 
-  TDSrvRiskPluginMgrSPtr getTDSrvRiskPluginMgr() const {
+  const TDSrvRiskPluginMgrSPtr& getTDSrvRiskPluginMgr() const {
     return tdSrvRiskPluginMgr_;
   }
 
-  db::TBLMonitorOfSymbolInfoSPtr getTBLMonitorOfSymbolInfo() const {
+  const db::TBLMonitorOfFlowCtrlRuleSPtr& getTBLMonitorOfFlowCtrlRule() {
+    return tblMonitorOfFlowCtrlRule_;
+  }
+
+  const db::TBLMonitorOfSymbolInfoSPtr& getTBLMonitorOfSymbolInfo() const {
     return tblMonitorOfSymbolInfo_;
   }
 
@@ -113,10 +126,16 @@ class TDSrv : public SvcBase {
 
   SHMSrvSPtr getSHMSrvOfTDGW() const { return shmSrvOfTDGW_; }
   SHMSrvSPtr getSHMSrvOfStgEng() const { return shmSrvOfStgEng_; }
+  SHMSrvSPtr getSHMSrvOfPlugIn() const { return shmSrvOfPlugIn_; }
 
-  void cacheTaskOfSyncGroup(MsgId msgId, const std::any& task,
-                            SyncToRiskMgr syncToRiskMgr, SyncToDB syncToDB);
-  void handleTaskOfSyncGroup();
+  std::string getPlugInChannel() const { return plugInChannel_; }
+  std::string getTopicOfTriggerRiskCtrl() const {
+    return topicOfTriggerRiskCtrl_;
+  }
+
+  void cacheSyncTaskGroup(MsgId msgId, const std::any& task,
+                          SyncToRiskMgr syncToRiskMgr, SyncToDB syncToDB);
+  void handleSyncTaskGroup();
 
   ScheduleTaskBundleSPtr& getScheduleTaskBundle() {
     return scheduleTaskBundle_;
@@ -124,7 +143,11 @@ class TDSrv : public SvcBase {
 
  private:
   db::DBEngSPtr dbEng_{nullptr};
+
+  db::TBLMonitorOfFlowCtrlRuleSPtr tblMonitorOfFlowCtrlRule_{nullptr};
   db::TBLMonitorOfSymbolInfoSPtr tblMonitorOfSymbolInfo_{nullptr};
+
+  ConditionFieldGroup conditionFieldGroup_;
 
   TDSrvRiskPluginMgrSPtr tdSrvRiskPluginMgr_{nullptr};
   PosMgrRestorerSPtr posMgrRestorer_{nullptr};
@@ -139,9 +162,13 @@ class TDSrv : public SvcBase {
 
   SHMSrvSPtr shmSrvOfTDGW_{nullptr};
   SHMSrvSPtr shmSrvOfStgEng_{nullptr};
+  SHMSrvSPtr shmSrvOfPlugIn_{nullptr};
 
-  std::vector<TaskOfSyncSPtr> taskOfSyncGroup_;
-  std::ext::spin_mutex mtxTaskOfSyncGroup_;
+  std::string plugInChannel_;
+  std::string topicOfTriggerRiskCtrl_;
+
+  std::vector<SyncTaskSPtr> syncTaskGroup_;
+  std::ext::spin_mutex mtxSyncTaskGroup_;
 
   ScheduleTaskBundleSPtr scheduleTaskBundle_{nullptr};
   SchedulerSPtr scheduleTaskBundleExecutor_{nullptr};

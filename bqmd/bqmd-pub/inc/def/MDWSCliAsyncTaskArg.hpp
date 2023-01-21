@@ -19,7 +19,7 @@ struct WSCliAsyncTaskArg;
 using WSCliAsyncTaskArgSPtr = std::shared_ptr<WSCliAsyncTaskArg>;
 
 struct WSCliAsyncTaskArg {
-  WSMsgType wsMsgType_;
+  MsgType wsMsgType_;
 
   yyjson_doc *doc_{nullptr};
   yyjson_val *root_{nullptr};

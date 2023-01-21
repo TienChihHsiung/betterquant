@@ -10,6 +10,7 @@
 
 #include "util/Fee.hpp"
 
+#include "def/BQConst.hpp"
 #include "def/DataStruOfTD.hpp"
 #include "def/StatusCode.hpp"
 #include "util/Float.hpp"
@@ -21,6 +22,13 @@ Decimal calcFee(const OrderInfoSPTr& orderInfo, Decimal feeRatio,
                 std::uint32_t parValue) {
   Decimal ret = 0;
   switch (orderInfo->symbolType_) {
+    case SymbolType::CN_MainBoard:
+    case SymbolType::CN_SecondBoard:
+    case SymbolType::CN_StartupBoard:
+    case SymbolType::CN_TechBoard:
+      ret = feeRatio * orderInfo->dealSize_ * orderInfo->avgDealPrice_;
+      break;
+
     case SymbolType::Spot:
       ret = orderInfo->side_ == Side::Bid
                 ? feeRatio * orderInfo->dealSize_
@@ -39,9 +47,11 @@ Decimal calcFee(const OrderInfoSPTr& orderInfo, Decimal feeRatio,
               orderInfo->avgDealPrice_;
       }
       break;
+
     default:
       break;
   }
+
   return ret >= 0 ? ret : ret * -1;
 }
 
@@ -49,14 +59,23 @@ std::string getFeeCurrency(const OrderInfoSPTr& orderInfo,
                            const std::string& baseCurrency,
                            const std::string& quoteCurrency) {
   switch (orderInfo->symbolType_) {
+    case SymbolType::CN_MainBoard:
+    case SymbolType::CN_SecondBoard:
+    case SymbolType::CN_StartupBoard:
+    case SymbolType::CN_TechBoard:
+      return CN_OFFICIAL_CURRENCY;
+
     case SymbolType::Spot:
       return orderInfo->side_ == Side::Bid ? baseCurrency : quoteCurrency;
+
     case SymbolType::Perp:
     case SymbolType::Futures:
       return quoteCurrency;
+
     case SymbolType::CPerp:
     case SymbolType::CFutures:
       return baseCurrency;
+
     default:
       break;
   }

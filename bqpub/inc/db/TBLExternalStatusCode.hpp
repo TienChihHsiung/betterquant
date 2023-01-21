@@ -10,17 +10,18 @@
 
 #pragma once
 
+#include "def/BQDef.hpp"
 #include "def/Def.hpp"
 #include "util/Pch.hpp"
 
 namespace bq::db::externalStatusCode {
 
 struct FieldGroupOfKey {
-  std::string marketCode;
-  std::string symbolType;
+  std::string apiName;
+  UserId userId;
   std::string externalStatusCode;
 
-  JSER(FieldGroupOfKey, marketCode, symbolType, externalStatusCode)
+  JSER(FieldGroupOfKey, apiName, userId, externalStatusCode)
 };
 
 struct FieldGroupOfVal {
@@ -31,14 +32,14 @@ struct FieldGroupOfVal {
 };
 
 struct FieldGroupOfAll {
-  std::string marketCode;
-  std::string symbolType;
+  std::string apiName;
+  UserId userId;
   std::string externalStatusCode;
   std::string externalStatusMsg;
   int statusCode;
 
-  JSER(FieldGroupOfAll, marketCode, symbolType, externalStatusCode,
-       externalStatusMsg, statusCode)
+  JSER(FieldGroupOfAll, apiName, userId, externalStatusCode, externalStatusMsg,
+       statusCode)
 };
 
 struct TableSchema {

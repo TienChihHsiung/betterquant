@@ -348,19 +348,19 @@ SymbolTableMaintOfBinance::doMakeSymbolInfo(const Val& v) const {
   auto convertSymbolType = [](const auto& symbolInfo) {
     std::string ret;
     if (symbolInfo->alias == "") {
-      ret = ENUM_VALUE_TO_STR(SymbolType::Spot);
+      ret = ENUM_TO_STR(SymbolType::Spot);
     } else {
       if (symbolInfo->alias == "PERPETUAL") {
         if (symbolInfo->settlementCurrency == "USD") {
-          ret = ENUM_VALUE_TO_STR(SymbolType::CPerp);
+          ret = ENUM_TO_STR(SymbolType::CPerp);
         } else {
-          ret = ENUM_VALUE_TO_STR(SymbolType::Perp);
+          ret = ENUM_TO_STR(SymbolType::Perp);
         }
       } else {
         if (symbolInfo->settlementCurrency == "USD") {
-          ret = ENUM_VALUE_TO_STR(SymbolType::CFutures);
+          ret = ENUM_TO_STR(SymbolType::CFutures);
         } else {
-          ret = ENUM_VALUE_TO_STR(SymbolType::Futures);
+          ret = ENUM_TO_STR(SymbolType::Futures);
         }
       }
     }
@@ -369,33 +369,31 @@ SymbolTableMaintOfBinance::doMakeSymbolInfo(const Val& v) const {
 
   auto convertSymbolCode = [](const auto& symbolInfo) {
     std::string ret = "";
-    if (symbolInfo->symbolType == ENUM_VALUE_TO_STR(SymbolType::Spot)) {
+    if (symbolInfo->symbolType == ENUM_TO_STR(SymbolType::Spot) {
       ret = fmt::format("{}{}{}", symbolInfo->baseCurrency, SEP_OF_SYMBOL_SPOT,
                         symbolInfo->quoteCurrency);
 
     } else if (symbolInfo->symbolType ==
-               ENUM_VALUE_TO_STR(SymbolType::Futures)) {
+               ENUM_TO_STR(SymbolType::Futures)) {
       ret = fmt::format("{}{}{}{}{}", symbolInfo->baseCurrency,
                         SEP_OF_SYMBOL_FUTURES, symbolInfo->quoteCurrency,
                         SEP_OF_SYMBOL_FUTURES, symbolInfo->alias);
 
-    } else if (symbolInfo->symbolType == ENUM_VALUE_TO_STR(SymbolType::Perp)) {
-      ret =
-          fmt::format("{}{}{}{}{}", symbolInfo->baseCurrency,
-                      SEP_OF_SYMBOL_PERP, symbolInfo->quoteCurrency,
-                      SEP_OF_SYMBOL_PERP, ENUM_VALUE_TO_STR(SymbolType::Perp));
+    } else if (symbolInfo->symbolType == ENUM_TO_STR(SymbolType::Perp)) {
+      ret = fmt::format("{}{}{}{}{}", symbolInfo->baseCurrency,
+                        SEP_OF_SYMBOL_PERP, symbolInfo->quoteCurrency,
+                        SEP_OF_SYMBOL_PERP, ENUM_TO_STR(SymbolType::Perp));
 
     } else if (symbolInfo->symbolType ==
-               ENUM_VALUE_TO_STR(SymbolType::CFutures)) {
+               ENUM_TO_STR(SymbolType::CFutures)) {
       ret = fmt::format("{}{}{}{}{}", symbolInfo->baseCurrency,
                         SEP_OF_SYMBOL_FUTURES, symbolInfo->quoteCurrency,
                         SEP_OF_SYMBOL_FUTURES, symbolInfo->alias);
 
-    } else if (symbolInfo->symbolType == ENUM_VALUE_TO_STR(SymbolType::CPerp)) {
-      ret =
-          fmt::format("{}{}{}{}{}", symbolInfo->baseCurrency,
-                      SEP_OF_SYMBOL_PERP, symbolInfo->quoteCurrency,
-                      SEP_OF_SYMBOL_PERP, ENUM_VALUE_TO_STR(SymbolType::CPerp));
+    } else if (symbolInfo->symbolType == ENUM_TO_STR(SymbolType::CPerp)) {
+      ret = fmt::format("{}{}{}{}{}", symbolInfo->baseCurrency,
+                        SEP_OF_SYMBOL_PERP, symbolInfo->quoteCurrency,
+                        SEP_OF_SYMBOL_PERP, ENUM_TO_STR(SymbolType::CPerp));
     }
     return ret;
   };
@@ -403,11 +401,11 @@ SymbolTableMaintOfBinance::doMakeSymbolInfo(const Val& v) const {
   auto convertSymbolState = [](const auto& symbolInfo) {
     std::string ret;
     if (symbolInfo->symbolState == "PRE_TRADING") {
-      ret = SYMBOL_STATE_PEROPEN;
+      ret = ENUM_TO_STR(SymbolState::Preopen);
     } else if (symbolInfo->symbolState == "TRADING") {
-      ret = SYMBOL_STATE_ONLINE;
+      ret = ENUM_TO_STR(SymbolState::Online);
     } else {
-      ret = SYMBOL_STATE_SUSPEND;
+      ret = ENUM_TO_STR(SymbolState::Suspend);
     }
     return ret;
   };
@@ -433,8 +431,8 @@ SymbolTableMaintOfBinance::doMakeSymbolInfo(const Val& v) const {
   rec->marketCode = mdSvc_->getMarketCode();
   rec->symbolType = convertSymbolType(rec);
 
-  if (rec->symbolType == ENUM_VALUE_TO_STR(SymbolType::CFutures) ||
-      rec->symbolType == ENUM_VALUE_TO_STR(SymbolType::CPerp)) {
+  if (rec->symbolType == ENUM_TO_STR(SymbolType::CFutures) ||
+      rec->symbolType == ENUM_TO_STR(SymbolType::CPerp)) {
     if (d.HasMember("contractSize") && d["contractSize"].IsUint()) {
       rec->parValue = d["contractSize"].GetUint();
     } else {

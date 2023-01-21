@@ -98,6 +98,13 @@ void StgInstTaskHandlerImpl::handleAsyncTaskImpl(
       }
     } break;
 
+    case MSG_ID_ON_MD_ORDERS: {
+      const auto orders = MakeMsgSPtrByTask<Orders>(asyncTask->task_);
+      if (stgInstTaskHandlerBundle_.onOrders_) {
+        stgInstTaskHandlerBundle_.onOrders_(stgInstInfo, orders);
+      }
+    } break;
+
     case MSG_ID_ON_MD_TICKERS: {
       const auto tickers = MakeMsgSPtrByTask<Tickers>(asyncTask->task_);
       if (stgInstTaskHandlerBundle_.onTickers_) {

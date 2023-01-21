@@ -79,7 +79,10 @@ class TBLMonitor {
     TBLRecSetSPtr<TableSchema> tblRecSetChg;
     std::tie(tblRecSetAdd, tblRecSetDel, tblRecSetChg) =
         TBLRecSetCompare(newTBLRecSet, tblRecSet_);
-    tblRecSet_ = newTBLRecSet;
+
+    if (enableMonitoring_ == EnableMonitoring::True) {
+      tblRecSet_ = newTBLRecSet;
+    }
 
     if (isFirstTimeOfMonit) {
       isFirstTimeOfMonit = false;

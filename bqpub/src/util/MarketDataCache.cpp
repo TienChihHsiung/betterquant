@@ -26,11 +26,16 @@ void MarketDataCache::cache(const TradesSPtr& trades) {
 #ifndef NDEBUG
   LOG_T("Recv market data. {}", trades->toStr());
 #endif
+
+  if (isApproximatelyZero(trades->price_)) {
+    return;
+  }
+
   {
     std::lock_guard<std::ext::spin_mutex> guard(mtxTopic2LastTradesGroup_);
     topic2LastTradesGroup_[trades->shmHeader_.topicHash_] = trades;
-    if (++timesOfRecvTrades_ % 10000 == 0) {
-      LOG_I("===== TRADES CACHE ===== {} \n{}", timesOfRecvTrades_,
+    if (++timesOfRecvTrades_ % 1000000 == 0) {
+      LOG_D("===== TRADES CACHE ===== {} \n{}", timesOfRecvTrades_,
             trades2Str());
     }
   }
@@ -54,7 +59,7 @@ TradesSPtr MarketDataCache::getLastTrades(MarketCode marketCode,
                                           const std::string& symbolCode) {
   const auto topic =
       fmt::format("{}{}{}{}{}{}{}{}{}", TOPIC_PREFIX_OF_MARKET_DATA,
-                  SEP_OF_TOPIC, magic_enum::enum_name(marketCode), SEP_OF_TOPIC,
+                  SEP_OF_TOPIC, GetMarketName(marketCode), SEP_OF_TOPIC,
                   magic_enum::enum_name(symbolType), SEP_OF_TOPIC, symbolCode,
                   SEP_OF_TOPIC, magic_enum::enum_name(MDType::Trades));
   return getLastTrades(topic);
@@ -106,7 +111,7 @@ std::tuple<int, std::vector<SymbolInfoSPtr>, std::uint64_t, Decimal> CalcPrice(
         fmt::format("{}{}{}", quoteCurrencyForCalc, SEP_OF_SYMBOL_SPOT,
                     quoteCurrency));
     if (lastTrades && !isApproximatelyZero(lastTrades->price_)) {
-      return {SCODE_SUCCESS, symbolGroupForCalc, lastTrades->tradeTs_,
+      return {SCODE_SUCCESS, symbolGroupForCalc, lastTrades->tradeTime_,
               lastTrades->price_};
 
     } else {
@@ -115,7 +120,7 @@ std::tuple<int, std::vector<SymbolInfoSPtr>, std::uint64_t, Decimal> CalcPrice(
           fmt::format("{}{}{}", quoteCurrency, SEP_OF_SYMBOL_SPOT,
                       quoteCurrencyForCalc));
       if (lastTrades && !isApproximatelyZero(lastTrades->price_)) {
-        return {SCODE_SUCCESS, symbolGroupForCalc, lastTrades->tradeTs_,
+        return {SCODE_SUCCESS, symbolGroupForCalc, lastTrades->tradeTime_,
                 1.0 / lastTrades->price_};
       }
     }
@@ -124,7 +129,7 @@ std::tuple<int, std::vector<SymbolInfoSPtr>, std::uint64_t, Decimal> CalcPrice(
   TradesSPtr lastTradesOfCalc = nullptr;
   if (quoteCurrencyForCalc == quoteCurrencyForConv) {
     lastTradesOfCalc = std::make_shared<Trades>();
-    lastTradesOfCalc->tradeTs_ = GetTotalUSSince1970();
+    lastTradesOfCalc->tradeTime_ = GetTotalUSSince1970();
     lastTradesOfCalc->price_ = 1.0;
   } else {
     lastTradesOfCalc = marketDataCache->getLastTrades(
@@ -136,7 +141,7 @@ std::tuple<int, std::vector<SymbolInfoSPtr>, std::uint64_t, Decimal> CalcPrice(
   TradesSPtr lastTrades = nullptr;
   if (quoteCurrency == quoteCurrencyForConv) {
     lastTrades = std::make_shared<Trades>();
-    lastTrades->tradeTs_ = GetTotalUSSince1970();
+    lastTrades->tradeTime_ = GetTotalUSSince1970();
     lastTrades->price_ = 1.0;
   } else {
     lastTrades = marketDataCache->getLastTrades(
@@ -149,9 +154,10 @@ std::tuple<int, std::vector<SymbolInfoSPtr>, std::uint64_t, Decimal> CalcPrice(
       !isApproximatelyZero(lastTrades->price_) &&
       !isApproximatelyZero(lastTradesOfCalc->price_)) {
     const auto lastPrice = lastTradesOfCalc->price_ / lastTrades->price_;
-    const auto updateTime = lastTrades->tradeTs_ < lastTradesOfCalc->tradeTs_
-                                ? lastTrades->tradeTs_
-                                : lastTradesOfCalc->tradeTs_;
+    const auto updateTime =
+        lastTrades->tradeTime_ < lastTradesOfCalc->tradeTime_
+            ? lastTrades->tradeTime_
+            : lastTradesOfCalc->tradeTime_;
     return {SCODE_SUCCESS, symbolGroupForCalc, updateTime, lastPrice};
   }
 

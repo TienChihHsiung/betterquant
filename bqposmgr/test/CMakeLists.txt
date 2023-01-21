@@ -20,6 +20,7 @@ target_include_directories(${TEST_PROJECT_NAME}
     PUBLIC "${PROJECT_SOURCE_DIR}/inc"
     PUBLIC "${PROJECT_SOURCE_DIR}/src"
     PUBLIC "${ICEORYX_INC_DIR}"
+    PUBLIC "${ABSEIL_INC_DIR}"
     PUBLIC "${MYSQLCPPCONN_INC_DIR}"
     PUBLIC "${YYJSON_INC_DIR}"
     PUBLIC "${RAPIDJSON_INC_DIR}"
@@ -42,6 +43,7 @@ target_include_directories(${TEST_PROJECT_NAME}
 target_link_directories(${TEST_PROJECT_NAME}
     PUBLIC "${SOLUTION_ROOT_DIR}/lib/"
     PUBLIC "${ICEORYX_LIB_DIR}"
+    PUBLIC "${ABSEIL_LIB_DIR}"
     PUBLIC "${MYSQLCPPCONN_LIB_DIR}"
     PUBLIC "${YYJSON_LIB_DIR}"
     PUBLIC "${NLOHMANN_JSON_LIB_DIR}"
@@ -78,6 +80,7 @@ else()
 endif()
 
 target_link_libraries(${TEST_PROJECT_NAME}
+    libboost_locale.a
     iceoryx_posh
     iceoryx_hoofs
     iceoryx_platform
@@ -85,6 +88,11 @@ target_link_libraries(${TEST_PROJECT_NAME}
     iceoryx_binding_c
     iceoryx_posh_gateway
     iceoryx_posh_roudi
+    libabsl_raw_hash_set.a
+    libabsl_flags_reflection.a
+    libabsl_hash.a
+    libabsl_city.a
+    libabsl_low_level_hash.a
     libxxhash.a
     libyyjson.a
     libyaml-cpp.a

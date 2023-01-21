@@ -2,7 +2,7 @@
 set -u
 set -e
 
-readonly PARALLEL_COMPILE_THREAD_NUM=8
+readonly PARALLEL_COMPILE_THREAD_NUM=1
 readonly SOLUTION_ROOT_DIR=/mnt/storage/work/betterquant
 
 readonly PROJ_NAME=$(pwd | awk -F'/' '{print $NF}')

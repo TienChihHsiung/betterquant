@@ -12,6 +12,7 @@
 
 #include "db/DBEngDef.hpp"
 #include "db/TBLExternalStatusCode.hpp"
+#include "def/BQDef.hpp"
 #include "def/Const.hpp"
 #include "def/Def.hpp"
 #include "util/Pch.hpp"
@@ -42,16 +43,15 @@ class ExternalStatusCodeCache {
   explicit ExternalStatusCodeCache(const db::DBEngSPtr& dbEng);
 
  public:
-  int load(const std::string& marketCode, const std::string& symbolType);
-  int reload(const std::string& marketCode, const std::string& symbolType) {
-    return load(marketCode, symbolType);
+  int load(const std::string& apiName, UserId userId);
+  int reload(const std::string& apiName, UserId userId) {
+    return load(apiName, userId);
   }
 
   std::tuple<int, bool> add(db::externalStatusCode::RecordSPtr& rec,
                             SyncToDB syncToDB = SyncToDB::True);
 
-  int getAndSetStatusCodeIfNotExists(const std::string& marketCode,
-                                     const std::string& symbolType,
+  int getAndSetStatusCodeIfNotExists(const std::string& apiName, UserId userId,
                                      const std::string& externalStatusCode,
                                      const std::string& externalStatusMsg,
                                      int defaultValue = 0);

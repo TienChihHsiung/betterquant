@@ -61,10 +61,10 @@ class StgEng {
 
  public:
   std::tuple<int, OrderId> order(const StgInstInfoSPtr& stgInstInfo,
-                                 AcctId acctId, const std::string& symbolCode,
-                                 Side side, PosSide posSide, Decimal orderPrice,
-                                 Decimal orderSize,
-                                 AlgoId algoId = DEFAULT_ALGO_ID,
+                                 AcctId acctId, MarketCode marketCode,
+                                 const std::string& symbolCode, Side side,
+                                 PosSide posSide, Decimal orderPrice,
+                                 Decimal orderSize, AlgoId algoId = 0,
                                  const SimedTDInfoSPtr& simedTDInfo = nullptr);
 
   std::tuple<int, OrderId> order(OrderInfoSPtr& orderInfo);

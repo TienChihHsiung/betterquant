@@ -63,6 +63,7 @@ target_include_directories(${PROJECT_NAME}
     PUBLIC "${PROJECT_SOURCE_DIR}/inc"
     PUBLIC "${PROJECT_SOURCE_DIR}/src"
     PUBLIC "${PROJECT_BINARY_DIR}"
+    PUBLIC "${TAOS_INC_DIR}"
     PUBLIC "${ABSEIL_INC_DIR}"
     PUBLIC "${ICEORYX_INC_DIR}"
     PUBLIC "${YYJSON_INC_DIR}"
@@ -86,6 +87,7 @@ target_link_directories(${PROJECT_NAME}
     PUBLIC "${SOLUTION_ROOT_DIR}/lib/"
     PUBLIC "${ABSEIL_LIB_DIR}"
     PUBLIC "${ICEORYX_LIB_DIR}"
+    PUBLIC "${TAOS_LIB_DIR}"
     PUBLIC "${YYJSON_LIB_DIR}"
     PUBLIC "${NLOHMANN_JSON_LIB_DIR}"
     PUBLIC "${CPR_LIB_DIR}"
@@ -118,6 +120,7 @@ else()
 endif()
 
 target_link_libraries(${PROJECT_NAME}
+    PUBLIC taos
     PUBLIC libcpr.a
     PUBLIC libcurl.a
     PUBLIC iceoryx_posh
@@ -195,6 +198,7 @@ ar -M << EOM
     ADDLIB ${ICEORYX_LIB_DIR}/libiceoryx_posh_roudi.a
     ADDLIB ${GFLAGS_LIB_DIR}/libgflags.a
     ADDLIB ${XXHASH_LIB_DIR}/libxxhash.a
+    ADDLIB ${BOOST_LIB_DIR}/libboost_locale.a
     ADDLIB ${BOOST_LIB_DIR}/libboost_date_time.a
     ADDLIB ${BOOST_LIB_DIR}/libboost_filesystem.a
     ADDLIB ${YAMLCPP_LIB_DIR}/libyaml-cpp.a
@@ -231,6 +235,7 @@ ar -M << EOM
     ADDLIB ${ICEORYX_LIB_DIR}/libiceoryx_posh_roudi.a
     ADDLIB ${GFLAGS_LIB_DIR}/libgflags.a
     ADDLIB ${XXHASH_LIB_DIR}/libxxhash.a
+    ADDLIB ${BOOST_LIB_DIR}/libboost_locale.a
     ADDLIB ${BOOST_LIB_DIR}/libboost_date_time.a
     ADDLIB ${BOOST_LIB_DIR}/libboost_filesystem.a
     ADDLIB ${YAMLCPP_LIB_DIR}/libyaml-cpp.a

@@ -62,6 +62,7 @@ target_include_directories(${PROJECT_NAME}
     PUBLIC "${PROJECT_SOURCE_DIR}/inc"
     PUBLIC "${PROJECT_SOURCE_DIR}/src"
     PUBLIC "${PROJECT_BINARY_DIR}"
+    PUBLIC "${TAOS_INC_DIR}"
     PUBLIC "${ABSEIL_INC_DIR}"
     PUBLIC "${ICEORYX_INC_DIR}"
     PUBLIC "${YYJSON_INC_DIR}"
@@ -86,6 +87,7 @@ target_link_directories(${PROJECT_NAME}
     PUBLIC "${SOLUTION_ROOT_DIR}/lib/"
     PUBLIC "${ABSEIL_LIB_DIR}"
     PUBLIC "${ICEORYX_LIB_DIR}"
+    PUBLIC "${TAOS_LIB_DIR}"
     PUBLIC "${YYJSON_LIB_DIR}"
     PUBLIC "${NLOHMANN_JSON_LIB_DIR}"
     PUBLIC "${CPR_LIB_DIR}"
@@ -119,6 +121,7 @@ else()
 endif()
 
 target_link_libraries(${PROJECT_NAME}
+    PUBLIC taos
     PUBLIC libcpr.a
     PUBLIC libcurl.a
     PUBLIC iceoryx_posh

@@ -27,7 +27,7 @@ std::string TopicContent::toJson() const {
   std::string ret;
   ret = R"({"shmHeader":)" + shmHeader_.toJson();
   if (dataLen_ != 0) {
-    ret = ret + R"(,"data":)" + R"(")" + data_ + R"(")";
+    ret = ret + R"(,"data":)" + data_;
   }
   ret = ret + "}";
   return ret;
@@ -41,6 +41,8 @@ void PubTopic(const SHMSrvSPtr& shmSrv, const std::string& topic,
   shmSrv->pushMsgWithZeroCopy(
       [&](void* shmBuf) {
         auto topicContent = static_cast<TopicContent*>(shmBuf);
+        strncpy(topicContent->shmHeader_.topic_, topic.c_str(),
+                MAX_TOPIC_LEN - 1);
         topicContent->shmHeader_.topicHash_ = topicHash;
         topicContent->dataLen_ = data.size();
         strncpy(topicContent->data_, data.c_str(), data.size());

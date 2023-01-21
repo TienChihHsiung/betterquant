@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "def/BQConst.hpp"
 #include "def/Def.hpp"
 #include "util/Pch.hpp"
 
@@ -28,29 +29,53 @@ struct FieldGroupOfVal {
   std::string symbolName;
   std::string exchSymbolCode;
   std::string alias;
+
   std::string underlyingIndex;
+
   std::string baseCurrency;
   std::string quoteCurrency;
   std::string settlementCurrency;
-  std::string precOfOrderPrice;
-  std::string precOfOrderVol;
-  std::string minOrderVol;
-  std::string maxOrderVol;
-  std::string minOrderAmt;
-  std::string maxOrderAmt;
+
+  std::string upperLimitPrice;
+  std::string lowerLimitPrice;
+
+  std::string preClosePrice;
+  std::string preSettlementPrice;
+
+  std::string precOfBidOrderPrice;
+  std::string precOfBidOrderVol;
+  std::string precOfAskOrderPrice;
+  std::string precOfAskOrderVol;
+
+  std::string minBidOrderVol;
+  std::string maxBidOrderVol;
+  std::string minAskOrderVol;
+  std::string maxAskOrderVol;
+
+  std::string minBidOrderAmt;
+  std::string maxBidOrderAmt;
+  std::string minAskOrderAmt;
+  std::string maxAskOrderAmt;
+
   std::uint32_t parValue;
   std::string contractMult;
   std::string maxLeverage;
+
   std::string symbolState;
+
   std::string launchTime;
   std::string deliveryTime;
+
   int isDel;
 
   JSER(FieldGroupOfVal, marketCode, symbolType, symbolCode, symbolName,
        exchSymbolCode, alias, underlyingIndex, baseCurrency, quoteCurrency,
-       settlementCurrency, precOfOrderPrice, precOfOrderVol, minOrderVol,
-       maxOrderVol, minOrderAmt, maxOrderAmt, parValue, contractMult,
-       maxLeverage, symbolState, launchTime, deliveryTime, isDel)
+       settlementCurrency, upperLimitPrice, lowerLimitPrice, preClosePrice,
+       preSettlementPrice, precOfBidOrderPrice, precOfBidOrderVol,
+       precOfAskOrderPrice, precOfAskOrderVol, minBidOrderVol, maxBidOrderVol,
+       minAskOrderVol, maxAskOrderVol, minBidOrderAmt, maxBidOrderAmt,
+       minAskOrderAmt, maxAskOrderAmt, parValue, contractMult, maxLeverage,
+       symbolState, launchTime, deliveryTime, isDel)
 };
 
 struct FieldGroupOfAll {
@@ -60,22 +85,43 @@ struct FieldGroupOfAll {
   std::string symbolName;
   std::string exchSymbolCode;
   std::string alias;
+
   std::string underlyingIndex;
+
   std::string baseCurrency;
   std::string quoteCurrency;
   std::string settlementCurrency;
-  std::string precOfOrderPrice;
-  std::string precOfOrderVol;
-  std::string minOrderVol;
-  std::string maxOrderVol;
-  std::string minOrderAmt;
-  std::string maxOrderAmt;
+
+  std::string upperLimitPrice;
+  std::string lowerLimitPrice;
+
+  std::string preClosePrice;
+  std::string preSettlementPrice;
+
+  std::string precOfBidOrderPrice;
+  std::string precOfBidOrderVol;
+  std::string precOfAskOrderPrice;
+  std::string precOfAskOrderVol;
+
+  std::string minBidOrderVol;
+  std::string maxBidOrderVol;
+  std::string minAskOrderVol;
+  std::string maxAskOrderVol;
+
+  std::string minBidOrderAmt;
+  std::string maxBidOrderAmt;
+  std::string minAskOrderAmt;
+  std::string maxAskOrderAmt;
+
   std::uint32_t parValue;
   std::string contractMult;
   std::string maxLeverage;
+
   std::string symbolState;
+
   std::string launchTime;
   std::string deliveryTime;
+
   int isDel;
 
   std::uint64_t hashOfMktSym_;
@@ -93,9 +139,12 @@ struct FieldGroupOfAll {
 
   JSER(FieldGroupOfAll, marketCode, symbolType, symbolCode, symbolName,
        exchSymbolCode, alias, underlyingIndex, baseCurrency, quoteCurrency,
-       settlementCurrency, precOfOrderPrice, precOfOrderVol, minOrderVol,
-       maxOrderVol, minOrderAmt, maxOrderAmt, parValue, contractMult,
-       maxLeverage, symbolState, launchTime, deliveryTime, isDel)
+       settlementCurrency, upperLimitPrice, lowerLimitPrice, preClosePrice,
+       preSettlementPrice, precOfBidOrderPrice, precOfBidOrderVol,
+       precOfAskOrderPrice, precOfAskOrderVol, minBidOrderVol, maxBidOrderVol,
+       minAskOrderVol, maxAskOrderVol, minBidOrderAmt, maxBidOrderAmt,
+       minAskOrderAmt, maxAskOrderAmt, parValue, contractMult, maxLeverage,
+       symbolState, launchTime, deliveryTime, isDel)
 };
 
 struct TableSchema {

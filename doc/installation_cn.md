@@ -43,18 +43,18 @@
 
 | 参数 | 说明 | 备注 |
 | ------ | ------ | ------ |
-| acctId | 需要创建的acctId | 区间 \[10001,20000) |
-| marketCode | 交易市场 | 如：Binance (大小写敏感) |
-| symbolType | 交易品种类型 | 如：Spot、Perp、CPerp、Futures、CFutures (大小写敏感，大写C开头的是币本位) |
+| acctId | 需要创建的acctId | 区间 \[10001,20000)，其他账号系统预留 |
+| marketCode | 交易市场 | 国内二级市场一般都是支持多交易所交易，因此填Others即可 |
+| symbolType | 交易品种类型 | 国内二级市场一般都是支持多交易所交易，因此填Others即可 |
 | acctName | 账户名称 | 给账户取一个有辨识度的名称 |
-| apiKey | 从交易所申请 | 请绑定IP关闭转账💣❗ |
-| secKey | 从交易所申请 | 请绑定IP关闭转账💣❗ |
-| phase | 从交易所申请 | 没有的话传""即可💣❗ |
+| apiKey | 从交易所申请 | 国内二级市场填空即可，加密货币请绑定IP关闭转账💣❗  |
+| secKey | 从交易所申请 | 国内二级市场填空即可，加密货币请绑定IP关闭转账💣❗ |
+| phase | 从交易所申请 | 国内二级市场填空即可，加密货币没有的话传""即可💣❗ |
 
-&emsp;&emsp;注：关于acctId，用户使用的账号区间定义在\[10001,20000)之间，其他区间预留给测试账号和国内期现或其他市场等衍生品交易。  
+&emsp;&emsp;注：关于acctId，用户使用的账号区间定义在\[10001,20000)之间，其他区间预留给测试账号、手拍单或其他账号。  
 ```bash
    # 例子：
-   bash create-acct.sh 10001 Binance Spot BinanceSpotTest apikey seckey ""  
+   bash create-acct.sh 10001 Others Others XTPTest "" "" ""  
 ```
 &emsp;&emsp;注：如果 acctId 已经存在，则会覆盖原有信息。  
 
@@ -83,19 +83,7 @@ iox-roudi -m off &
 * 运行以下服务
 ```shell
 # 运行币安现货行情服务
-./bqmd-binance --conf=config/bqmd-binance/spot/bqmd-binance.yaml &
-
-# 运行币安U本位交割合约行情服务
-./bqmd-binance --conf=config/bqmd-binance/futures/bqmd-binance.yaml &
-
-# 运行币安U本位永续合约行情服务
-./bqmd-binance --conf=config/bqmd-binance/perp/bqmd-binance.yaml &
-
-# 运行币安币本位交割合约服务
-./bqmd-binance --conf=config/bqmd-binance/cfutures/bqmd-binance.yaml &
-
-# 运行币安币本位永续合约服务
-./bqmd-binance --conf=config/bqmd-binance/cperp/bqmd-binance.yaml &
+./bqmd-xtp --conf=config/bqmd-xtp/bqmd-xtp.yaml &
 
 # 运行风控子系统
 ./bqriskmgr --conf=config/bqriskmgr/bqriskmgr.yaml
@@ -104,7 +92,7 @@ iox-roudi -m off &
 ./bqtd-srv --conf=config/bqtd-srv/bqtd-srv.yaml
 
 # 启动交易网关  
-./bqtd-binance --conf=config/bqtd-binance/spot/bqtd-binance-10001.yaml &
+./bqtd-xtp --conf=config/bqtd-xtp/bqtd-xtp.yaml &
 
 ```
 * 停止服务
@@ -115,6 +103,3 @@ ps -ef|grep -i bqmd|grep spot'
 # 然后再通过 kill -SIGINT pid 或 kill -SIGTERM pid 停止服务
 # 切记不可用 kill -SIGKILL 或 kill -9
 ```
-
-* 注意‼️  
-**apiKey请绑定IP并关闭转账功能，另外设定一个自己的数据库密码，切记💣❗**

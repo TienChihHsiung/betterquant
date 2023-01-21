@@ -21,7 +21,7 @@
 #include "def/DataStruOfOthers.hpp"
 #include "def/DataStruOfTD.hpp"
 #include "def/Def.hpp"
-#include "def/TaskOfSync.hpp"
+#include "def/SyncTask.hpp"
 #include "util/Datetime.hpp"
 #include "util/Logger.hpp"
 #include "util/Random.hpp"
@@ -179,8 +179,8 @@ void PosMgrRestorer::restorePosMgr(
       const auto& orderInfo = rec.second;
       LOG_W("Begin to restore pos by order info. {}", orderInfo->toShortStr());
       const auto posChgInfo = posMgr->updateByOrderInfoFromTDGW(orderInfo);
-      tdSrv_->cacheTaskOfSyncGroup(MSG_ID_SYNC_POS_INFO, posChgInfo,
-                                   SyncToRiskMgr::False, SyncToDB::True);
+      tdSrv_->cacheSyncTaskGroup(MSG_ID_SYNC_POS_INFO, posChgInfo,
+                                 SyncToRiskMgr::False, SyncToDB::True);
     }
   }
 }

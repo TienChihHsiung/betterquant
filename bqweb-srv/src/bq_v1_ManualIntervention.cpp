@@ -14,10 +14,10 @@
 #include "SHMIPCMsgId.hpp"
 #include "SHMSrv.hpp"
 #include "WebSrv.hpp"
+#include "WebSrvUtil.hpp"
 #include "def/CommonIPCData.hpp"
 #include "def/Def.hpp"
 #include "def/StatusCode.hpp"
-#include "util/BQUtil.hpp"
 #include "util/Logger.hpp"
 
 using namespace bq::v1;

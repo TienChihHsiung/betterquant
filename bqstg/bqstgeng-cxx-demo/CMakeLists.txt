@@ -63,6 +63,7 @@ target_include_directories(${PROJECT_NAME}
     PUBLIC "${PROJECT_SOURCE_DIR}/inc"
     PUBLIC "${PROJECT_SOURCE_DIR}/src"
     PUBLIC "${PROJECT_BINARY_DIR}"
+    PUBLIC "${TAOS_INC_DIR}"
     PUBLIC "${MYSQLCPPCONN_INC_DIR}"
     PUBLIC "${SPDLOG_INC_DIR}"
     PUBLIC "${FMT_INC_DIR}"
@@ -73,6 +74,7 @@ target_include_directories(${PROJECT_NAME}
 target_link_directories(${PROJECT_NAME}
     PUBLIC "${SOLUTION_ROOT_DIR}/lib/"
     PUBLIC "${MYSQLCPPCONN_LIB_DIR}"
+    PUBLIC "${TAOS_LIB_DIR}"
    )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -86,6 +88,7 @@ else()
 endif()
 
 target_link_libraries(${PROJECT_NAME}
+    PUBLIC taos
     PUBLIC mysqlcppconn-static
     PUBLIC libmysqlclient.a
     PUBLIC crypto

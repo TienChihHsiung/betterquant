@@ -68,8 +68,8 @@ void StgInstTaskHandlerOfPerpTest::onStgInstTimer(
       price *= 0.99;
     }
     price = static_cast<int>(price * 100) / 100.0;
-    getStgEng()->order(stgInstInfo, 10004, symbolCode, side, PosSide::Both,
-                       price, 0.1);
+    getStgEng()->order(stgInstInfo, 10004, MarketCode::Binance, symbolCode,
+                       side, PosSide::Both, price, 0.1);
     alreadyOrder = true;
   }
 }

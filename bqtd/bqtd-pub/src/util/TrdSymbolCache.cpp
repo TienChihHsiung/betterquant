@@ -32,7 +32,7 @@ int TrdSymbolCache::load(const std::string& marketCode,
   if (!symbolType.empty()) {
     sql = sql + fmt::format("AND `symbolType` = '{}' ", symbolType);
   }
-  if (acctId == 0) {
+  if (acctId != 0) {
     sql = sql + fmt::format("AND `acctId` = '{}' ", acctId);
   }
 

@@ -144,8 +144,7 @@ std::string AssetInfo::getSqlOfDelete() const{
 AssetInfoSPtr MakeAssetInfo(const db::assetInfo::RecordSPtr& recAssetInfo) {
   auto assetInfo = std::make_shared<AssetInfo>();
   assetInfo->acctId_ = recAssetInfo->acctId;
-  assetInfo->marketCode_ =
-      magic_enum::enum_cast<MarketCode>(recAssetInfo->marketCode).value();
+  assetInfo->marketCode_ = GetMarketCode(recAssetInfo->marketCode);
   assetInfo->symbolType_ =
       magic_enum::enum_cast<SymbolType>(recAssetInfo->symbolType).value();
   strncpy(assetInfo->assetName_, recAssetInfo->assetName.c_str(),

@@ -77,7 +77,7 @@ void SubAndUnSubSvc::handleTaskOfSubAndUnSub(
 }
 
 void SubAndUnSubSvc::doSubOrUnSub(const WSReqGroup& reqGroup, TopicOP topicOP) {
-  const auto taskType = std::string(magic_enum::enum_name(topicOP));
+  const auto taskType = ENUM_TO_STR(topicOP);
   for (const auto& req : reqGroup) {
     const auto exceedFlowCtrl =
         mdSvc_->getFlowCtrlSvc()->exceedFlowCtrl(taskType, WriteLog::False);

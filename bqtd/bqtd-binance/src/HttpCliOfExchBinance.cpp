@@ -676,7 +676,7 @@ OrderInfoSPtr HttpCliOfExchBinance::makeOrderInfoFromExchOfSpot(
 
     const auto statusCode =
         tdSvc_->getExternalStatusCodeCache()->getAndSetStatusCodeIfNotExists(
-            tdSvc_->getMarketCode(), tdSvc_->getSymbolType(),
+            tdSvc_->getMarketCode(), orderInfoInOrdMgr->userId_,
             externalStatusCode, externalStatusMsg, -1);
 
     ret->marketCode_ = tdSvc_->getMarketCodeEnum();
@@ -766,7 +766,7 @@ OrderInfoSPtr HttpCliOfExchBinance::makeOrderInfoFromExchOfUBasedContracts(
 
     const auto statusCode =
         tdSvc_->getExternalStatusCodeCache()->getAndSetStatusCodeIfNotExists(
-            tdSvc_->getMarketCode(), tdSvc_->getSymbolType(),
+            tdSvc_->getMarketCode(), orderInfoInOrdMgr->userId_,
             externalStatusCode, externalStatusMsg, -1);
 
     ret->marketCode_ = tdSvc_->getMarketCodeEnum();
@@ -847,7 +847,7 @@ OrderInfoSPtr HttpCliOfExchBinance::makeOrderInfoFromExchOfCBasedContracts(
 
     const auto statusCode =
         tdSvc_->getExternalStatusCodeCache()->getAndSetStatusCodeIfNotExists(
-            tdSvc_->getMarketCode(), tdSvc_->getSymbolType(),
+            tdSvc_->getMarketCode(), orderInfoInOrdMgr->userId_,
             externalStatusCode, externalStatusMsg, -1);
 
     ret->marketCode_ = tdSvc_->getMarketCodeEnum();

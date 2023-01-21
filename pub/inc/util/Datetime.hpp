@@ -24,6 +24,7 @@ std::string ConvertTsToPtime(std::uint64_t ts);
 std::uint64_t ConvertDBTimeToTS(std::string dbTime);
 std::tuple<int, std::uint64_t> ConvertISODatetimeToTs(
     const std::string& isoDatetime);
+std::uint64_t ConvertDatetimeToTs(std::int64_t datetime);
 
 std::string GetDateInStrFmtFromTs(std::uint64_t ts);
 boost::gregorian::date GetDateFromTs(std::uint64_t ts);

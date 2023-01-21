@@ -60,8 +60,6 @@ class SHMSrv : public SHMIPCBase {
 
  private:
   SafePublisherSPtr getSafePublisher(ClientChannel clientChannel);
-  void writeRawDataToSHM(iox::popo::UntypedPublisher* const publisher,
-                         void* data, std::size_t len);
 
  private:
   std::array<SafePublisherSPtr, std::numeric_limits<ClientChannel>::max()>

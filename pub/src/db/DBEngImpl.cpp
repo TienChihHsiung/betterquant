@@ -117,10 +117,16 @@ std::string DBEngImpl::getJsonFmtOfRecordSet(
     const std::vector<int>& fieldTypeGroup,
     const std::vector<std::string>& fieldNameGroup) {
   std::string jsonFmtOfRecordSet = "[";
+  int i = 0;
   while (res->next()) {
     const auto jsonFmtOfRec =
         getJsonFmtOfRec(res, fieldTypeGroup, fieldNameGroup);
-    jsonFmtOfRecordSet = jsonFmtOfRecordSet + jsonFmtOfRec + ",";
+    jsonFmtOfRecordSet.append(jsonFmtOfRec).append(",");
+    if (++i == 1) {
+      const auto rowsCount = res->rowsCount();
+      const auto rowSizeEstimate = jsonFmtOfRec.size() * 1.1;
+      jsonFmtOfRecordSet.reserve(rowsCount * rowSizeEstimate);
+    }
   }
   jsonFmtOfRecordSet.pop_back();
   if (jsonFmtOfRecordSet.empty() == false) {

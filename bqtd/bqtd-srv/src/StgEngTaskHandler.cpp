@@ -11,6 +11,7 @@
 #include "StgEngTaskHandler.hpp"
 
 #include "ClientChannelGroup.hpp"
+#include "FlowCtrlRuleMgr.hpp"
 #include "OrdMgr.hpp"
 #include "SHMHeader.hpp"
 #include "SHMIPCMsgId.hpp"
@@ -19,13 +20,14 @@
 #include "SHMSrv.hpp"
 #include "TDSrv.hpp"
 #include "TDSrvRiskPluginMgr.hpp"
+#include "TDSrvUtil.hpp"
 #include "db/TBLMonitorOfSymbolInfo.hpp"
 #include "def/BQDef.hpp"
 #include "def/DataStruOfMD.hpp"
 #include "def/DataStruOfOthers.hpp"
 #include "def/DataStruOfTD.hpp"
 #include "def/StatusCode.hpp"
-#include "def/TaskOfSync.hpp"
+#include "def/SyncTask.hpp"
 #include "util/Datetime.hpp"
 #include "util/StdExt.hpp"
 #include "util/TaskDispatcher.hpp"
@@ -74,8 +76,8 @@ void StgEngTaskHandler::handleMsgIdOnOrder(
         },
         ordReq->stgId_, MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
 
-    tdSrv_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, ordReq,
-                                 SyncToRiskMgr::False, SyncToDB::True);
+    tdSrv_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, ordReq,
+                               SyncToRiskMgr::False, SyncToDB::True);
     return;
   }
 
@@ -94,8 +96,8 @@ void StgEngTaskHandler::handleMsgIdOnOrder(
         },
         ordReq->stgId_, MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
 
-    tdSrv_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, ordReq,
-                                 SyncToRiskMgr::False, SyncToDB::True);
+    tdSrv_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, ordReq,
+                               SyncToRiskMgr::False, SyncToDB::True);
     return;
   }
 
@@ -114,8 +116,19 @@ void StgEngTaskHandler::handleMsgIdOnOrder(
         },
         ordReq->stgId_, MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
 
-    tdSrv_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, ordReq,
-                                 SyncToRiskMgr::False, SyncToDB::True);
+    const auto no2FlowCtrlRuleGroup =
+        std::ext::tls_get<FlowCtrlRuleMgr>().getNo2FlowCtrlRuleGroup();
+    const auto iterNo2Rule = no2FlowCtrlRuleGroup->find(ordReq->statusCode_);
+    if (iterNo2Rule != std::end(*no2FlowCtrlRuleGroup)) {
+      PubTopic(tdSrv_->getSHMSrvOfPlugIn(), tdSrv_->getTopicOfTriggerRiskCtrl(),
+               MakeTopicDataOfTriggerRiskCtrl(iterNo2Rule->second, ordReq));
+    } else {
+      LOG_W("Pub topic failed because of not find risk ctrl rule of no {}.",
+            ordReq->statusCode_);
+    }
+
+    tdSrv_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, ordReq,
+                               SyncToRiskMgr::False, SyncToDB::True);
     return;
   }
 
@@ -167,6 +180,17 @@ void StgEngTaskHandler::handleMsgIdOnCancelOrder(
                 static_cast<OrderInfo*>(shmBuf)->toShortStr());
         },
         ordReq->stgId_, MSG_ID_ON_CANCEL_ORDER_RET, sizeof(OrderInfo));
+
+    const auto no2FlowCtrlRuleGroup =
+        std::ext::tls_get<FlowCtrlRuleMgr>().getNo2FlowCtrlRuleGroup();
+    const auto iterNo2Rule = no2FlowCtrlRuleGroup->find(ordReq->statusCode_);
+    if (iterNo2Rule != std::end(*no2FlowCtrlRuleGroup)) {
+      PubTopic(tdSrv_->getSHMSrvOfPlugIn(), tdSrv_->getTopicOfTriggerRiskCtrl(),
+               MakeTopicDataOfTriggerRiskCtrl(iterNo2Rule->second, ordReq));
+    } else {
+      LOG_W("Pub topic failed because of not find risk ctrl rule of no {}.",
+            ordReq->statusCode_);
+    }
 
     return;
   }

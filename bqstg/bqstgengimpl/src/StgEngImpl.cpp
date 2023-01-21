@@ -31,7 +31,10 @@
 #include "def/Pnl.hpp"
 #include "def/SimedTDInfo.hpp"
 #include "def/StatusCode.hpp"
-#include "def/TaskOfSync.hpp"
+#include "def/SyncTask.hpp"
+#include "tdeng/TDEngConnpool.hpp"
+#include "tdeng/TDEngConst.hpp"
+#include "tdeng/TDEngParam.hpp"
 #include "util/AcctInfoCache.hpp"
 #include "util/File.hpp"
 #include "util/Literal.hpp"
@@ -43,6 +46,7 @@
 #include "util/String.hpp"
 #include "util/SubMgr.hpp"
 #include "util/TaskDispatcher.hpp"
+#include "util/TopicMgr.hpp"
 #include "util/Util.hpp"
 
 namespace bq::stg {
@@ -51,7 +55,7 @@ StgEngImpl::StgEngImpl(const std::string& configFilename)
     : SvcBase(configFilename) {}
 
 int StgEngImpl::prepareInit() {
-  taskOfSyncGroup_.reserve(1024);
+  syncTaskGroup_.reserve(1024);
 
   try {
     config_ = YAML::LoadFile(configFilename_);
@@ -89,10 +93,16 @@ int StgEngImpl::doInit() {
   initTBLMonitorOfSymbolInfo();
   initTBLMonitorOfStgInstInfo();
 
+  if (const auto ret = initTDEng(); ret != 0) {
+    LOG_E("Do init failed.");
+    return ret;
+  }
+
   acctInfoCache_ = std::make_shared<AcctInfoCache>(getDBEng());
   marketDataCache_ = std::make_shared<MarketDataCache>();
 
   initSubMgr();
+  initTopicMgr();
   initOrdMgr();
   initPosMgr();
 
@@ -137,13 +147,36 @@ int StgEngImpl::initDBEng() {
   return 0;
 }
 
+int StgEngImpl::initTDEng() {
+  const auto tdEngParamInStrFmt = SetParam(
+      tdeng::DEFAULT_TDENG_PARAM, getConfig()["tdEngParam"].as<std::string>());
+  const auto [ret, tdEngParam] = tdeng::MakeTDEngParam(tdEngParamInStrFmt);
+  if (ret != 0) {
+    LOG_E("Init failed. {}", tdEngParamInStrFmt);
+    return ret;
+  }
+
+  tdEngConnpool_ = std::make_shared<tdeng::TDEngConnpool>(tdEngParam);
+  if (const auto statusCode = tdEngConnpool_->init(); statusCode != 0) {
+    LOG_E("Init failed. {}", tdEngParamInStrFmt);
+    return -1;
+  }
+
+  return 0;
+}
+
 void StgEngImpl::initTBLMonitorOfSymbolInfo() {
   const auto milliSecIntervalOfTBLMonitorOfSymbolInfo =
       getConfig()["milliSecIntervalOfTBLMonitorOfSymbolInfo"]
           .as<std::uint32_t>();
+  const auto enableSymbolInfoMonitoring =
+      getConfig()["enableSymbolInfoMonitoring"].as<bool>(true)
+          ? db::EnableMonitoring::True
+          : db::EnableMonitoring::False;
   const auto sql = fmt::format("SELECT * FROM {}", TBLSymbolInfo::TableName);
   tblMonitorOfSymbolInfo_ = std::make_shared<db::TBLMonitorOfSymbolInfo>(
-      getDBEng(), milliSecIntervalOfTBLMonitorOfSymbolInfo, sql);
+      getDBEng(), milliSecIntervalOfTBLMonitorOfSymbolInfo, sql, nullptr,
+      enableSymbolInfoMonitoring);
 }
 
 void StgEngImpl::initTBLMonitorOfStgInstInfo() {
@@ -194,6 +227,35 @@ void StgEngImpl::initSubMgr() {
   };
 
   subMgr_ = std::make_shared<SubMgr>(appName_, onSHMDataRecv);
+}
+
+void StgEngImpl::initTopicMgr() {
+  topicMgr_ = std::make_shared<TopicMgr>(
+      TopicMgrRole::Cli, [this](const auto& anyData) {
+        const auto mdSvcIdentity =
+            fmt::format("{}{}{}", SEP_OF_SHM_SVC, TOPIC_PREFIX_OF_MARKET_DATA,
+                        SEP_OF_SHM_SVC);
+        const auto subscriber2TopicGroupInJsonFmt =
+            std::any_cast<std::string>(anyData);
+        const auto addr2SHMCliGroup = subMgr_->getSHMCliGroup();
+        const auto shmBufLen =
+            sizeof(CommonIPCData) + subscriber2TopicGroupInJsonFmt.size() + 1;
+        for (const auto& addr2SHMCliGroup : addr2SHMCliGroup) {
+          if (!boost::contains(addr2SHMCliGroup.first, mdSvcIdentity)) {
+            continue;
+          }
+          addr2SHMCliGroup.second->asyncSendMsgWithZeroCopy(
+              [&](void* shmBuf) {
+                auto commonIPCData = static_cast<CommonIPCData*>(shmBuf);
+                memcpy(commonIPCData->data_,
+                       subscriber2TopicGroupInJsonFmt.c_str(),
+                       subscriber2TopicGroupInJsonFmt.size());
+                commonIPCData->dataLen_ =
+                    subscriber2TopicGroupInJsonFmt.size() + 1;
+              },
+              MSG_ID_SYNC_SUB_INFO, shmBufLen);
+        }
+      });
 }
 
 void StgEngImpl::initSHMCliOfTDSrv() {
@@ -345,7 +407,7 @@ void StgEngImpl::initScheduleTaskBundle() {
     scheduleTaskBundle_->emplace_back(std::make_shared<ScheduleTask>(
         "syncTask",
         [this]() {
-          handleTaskOfSyncGroup();
+          handleSyncTaskGroup();
           return true;
         },
         ExecAtStartup::False, milliSecIntervalOfSyncTask));
@@ -372,6 +434,8 @@ int StgEngImpl::doRun() {
     LOG_E("[{}] Start failed.", appName_);
     return ret;
   }
+
+  topicMgr_->start();
 
   if (const auto [ret, stgInstInfo] =
           tblMonitorOfStgInstInfo_->getStgInstInfo(1);
@@ -436,28 +500,29 @@ void StgEngImpl::sendStgReg() {
       MSG_ID_ON_STG_REG, sizeof(StgReg));
 }
 
-void StgEngImpl::cacheTaskOfSyncGroup(MsgId msgId, const std::any& task,
-                                      SyncToRiskMgr syncToRiskMgr,
-                                      SyncToDB syncToDB) {
+void StgEngImpl::cacheSyncTaskGroup(MsgId msgId, const std::any& task,
+                                    SyncToRiskMgr syncToRiskMgr,
+                                    SyncToDB syncToDB) {
   {
-    std::lock_guard<std::ext::spin_mutex> guard(mtxTaskOfSyncGroup_);
-    taskOfSyncGroup_.emplace_back(
-        std::make_shared<TaskOfSync>(msgId, task, syncToRiskMgr, syncToDB));
+    std::lock_guard<std::ext::spin_mutex> guard(mtxSyncTaskGroup_);
+    syncTaskGroup_.emplace_back(
+        std::make_shared<SyncTask>(msgId, task, syncToRiskMgr, syncToDB));
   }
 }
 
-void StgEngImpl::handleTaskOfSyncGroup() {
-  std::vector<TaskOfSyncSPtr> taskGroup;
+void StgEngImpl::handleSyncTaskGroup() {
+  std::vector<SyncTaskSPtr> syncTaskGroup;
   {
-    std::lock_guard<std::ext::spin_mutex> guard(mtxTaskOfSyncGroup_);
-    std::swap(taskGroup, taskOfSyncGroup_);
+    std::lock_guard<std::ext::spin_mutex> guard(mtxSyncTaskGroup_);
+    std::swap(syncTaskGroup, syncTaskGroup_);
   }
 
-  if (taskGroup.size() > 100) {
-    LOG_W("Too many unprocessed task of sync. [num = {}]", taskGroup.size());
+  if (syncTaskGroup.size() > 100) {
+    LOG_W("Too many unprocessed task of sync. [num = {}]",
+          syncTaskGroup.size());
   }
 
-  for (const auto& rec : taskGroup) {
+  for (const auto& rec : syncTaskGroup) {
     if (rec->syncToRiskMgr_ == SyncToRiskMgr::False) continue;
     if (rec->msgId_ == MSG_ID_ON_ORDER || rec->msgId_ == MSG_ID_ON_ORDER_RET ||
         rec->msgId_ == MSG_ID_ON_CANCEL_ORDER ||
@@ -476,7 +541,7 @@ void StgEngImpl::handleTaskOfSyncGroup() {
     }
   }
 
-  for (const auto& rec : taskGroup) {
+  for (const auto& rec : syncTaskGroup) {
     if (rec->syncToDB_ == SyncToDB::False) continue;
     if (rec->msgId_ == MSG_ID_ON_ORDER || rec->msgId_ == MSG_ID_ON_ORDER_RET ||
         rec->msgId_ == MSG_ID_ON_CANCEL_ORDER ||
@@ -502,13 +567,15 @@ void StgEngImpl::doExit(const boost::system::error_code* ec, int signalNum) {
   shmCliOfRiskMgr_->stop();
   shmCliOfTDSrv_->stop();
   stgInstTaskDispatcher_->stop();
+  topicMgr_->stop();
   tblMonitorOfSymbolInfo_->stop();
   tblMonitorOfStgInstInfo_->stop();
+  tdEngConnpool_->uninit();
   getDBEng()->stop();
 }
 
 std::tuple<int, OrderId> StgEngImpl::order(const StgInstInfoSPtr& stgInstInfo,
-                                           AcctId acctId,
+                                           AcctId acctId, MarketCode marketCode,
                                            const std::string& symbolCode,
                                            Side side, PosSide posSide,
                                            Decimal orderPrice,
@@ -521,23 +588,35 @@ std::tuple<int, OrderId> StgEngImpl::order(const StgInstInfoSPtr& stgInstInfo,
   if (simedTDInfoInJsonFmt.size() > MAX_SIMED_TD_INFO - 1) {
     return {SCODE_STG_INVALID_SIMED_TD_INFO_SIZE, 0};
   }
+
   auto orderInfo =
-      MakeOrderInfo(stgInstInfo, acctId, symbolCode, side, posSide, orderPrice,
-                    orderSize, algoId, simedTDInfoInJsonFmt);
+      MakeOrderInfo(stgInstInfo, acctId, marketCode, symbolCode, side, posSide,
+                    orderPrice, orderSize, algoId, simedTDInfoInJsonFmt);
+
   return order(orderInfo);
 }
 
 std::tuple<int, OrderId> StgEngImpl::order(OrderInfoSPtr& orderInfo) {
-  int retOfGetMarketCodeAndSymbolType = 0;
-  std::tie(retOfGetMarketCodeAndSymbolType, orderInfo->marketCode_,
-           orderInfo->symbolType_) =
-      acctInfoCache_->getMarketCodeAndSymbolType(orderInfo->acctId_);
-  if (retOfGetMarketCodeAndSymbolType != 0) {
+  if (orderInfo->marketCode_ == MarketCode::Others) {
+    int retOfGetMarketCodeAndSymbolType = 0;
+    std::tie(retOfGetMarketCodeAndSymbolType, orderInfo->marketCode_,
+             orderInfo->symbolType_) =
+        acctInfoCache_->getMarketCodeAndSymbolType(orderInfo->acctId_);
+    if (retOfGetMarketCodeAndSymbolType != 0) {
+      orderInfo->orderStatus_ = OrderStatus::Failed;
+      orderInfo->statusCode_ = retOfGetMarketCodeAndSymbolType;
+      LOG_W("[{}] Order failed. [{} - {}] {}", appName_, orderInfo->statusCode_,
+            GetStatusMsg(orderInfo->statusCode_), orderInfo->toShortStr());
+      return {retOfGetMarketCodeAndSymbolType, 0};
+    }
+  }
+
+  if (orderInfo->marketCode_ == MarketCode::Others) {
     orderInfo->orderStatus_ = OrderStatus::Failed;
-    orderInfo->statusCode_ = retOfGetMarketCodeAndSymbolType;
+    orderInfo->statusCode_ = SCODE_STG_INVALID_MARKET_CODE;
     LOG_W("[{}] Order failed. [{} - {}] {}", appName_, orderInfo->statusCode_,
           GetStatusMsg(orderInfo->statusCode_), orderInfo->toShortStr());
-    return {retOfGetMarketCodeAndSymbolType, 0};
+    return {orderInfo->statusCode_, 0};
   }
 
   const auto [retOfGetSym, recSymbolInfo] =
@@ -551,6 +630,20 @@ std::tuple<int, OrderId> StgEngImpl::order(OrderInfoSPtr& orderInfo) {
     return {retOfGetSym, 0};
   }
 
+  if (orderInfo->symbolType_ == SymbolType::Others) {
+    const auto symbolTypeVal =
+        magic_enum::enum_cast<SymbolType>(recSymbolInfo->symbolType);
+    if (symbolTypeVal.has_value()) {
+      orderInfo->symbolType_ = symbolTypeVal.value();
+    } else {
+      orderInfo->orderStatus_ = OrderStatus::Failed;
+      orderInfo->statusCode_ = SCODE_STG_INVALID_SYMBOL_TYPE_IN_DB;
+      LOG_W("[{}] Order failed. [{} - {}] {}", appName_, orderInfo->statusCode_,
+            GetStatusMsg(orderInfo->statusCode_), orderInfo->toShortStr());
+      return {orderInfo->statusCode_, 0};
+    }
+  }
+
   const auto [retOfGetStgInst, stgInstInfo] =
       tblMonitorOfStgInstInfo_->getStgInstInfo(orderInfo->stgInstId_);
   if (retOfGetStgInst != 0) {
@@ -561,8 +654,20 @@ std::tuple<int, OrderId> StgEngImpl::order(OrderInfoSPtr& orderInfo) {
     return {retOfGetStgInst, 0};
   }
 
-  if (orderInfo->symbolType_ == SymbolType::Spot) {
+  if (orderInfo->symbolType_ == SymbolType::CN_MainBoard ||
+      orderInfo->symbolType_ == SymbolType::CN_SecondBoard ||
+      orderInfo->symbolType_ == SymbolType::CN_StartupBoard ||
+      orderInfo->symbolType_ == SymbolType::CN_TechBoard ||
+      orderInfo->symbolType_ == SymbolType::Spot) {
     orderInfo->posSide_ = PosSide::Both;
+  }
+
+  if (orderInfo->symbolType_ == SymbolType::CN_MainBoard ||
+      orderInfo->symbolType_ == SymbolType::CN_SecondBoard ||
+      orderInfo->symbolType_ == SymbolType::CN_StartupBoard ||
+      orderInfo->symbolType_ == SymbolType::CN_TechBoard) {
+    strncpy(orderInfo->feeCurrency_, CN_OFFICIAL_CURRENCY.c_str(),
+            sizeof(orderInfo->feeCurrency_) - 1);
   }
 
   orderInfo->orderId_ = GET_RAND_INT();
@@ -592,8 +697,9 @@ std::tuple<int, OrderId> StgEngImpl::order(OrderInfoSPtr& orderInfo) {
 #endif
       },
       MSG_ID_ON_ORDER, sizeof(OrderInfo));
-  cacheTaskOfSyncGroup(MSG_ID_ON_ORDER, orderInfo, SyncToRiskMgr::True,
-                       SyncToDB::True);
+
+  cacheSyncTaskGroup(MSG_ID_ON_ORDER, orderInfo, SyncToRiskMgr::True,
+                     SyncToDB::True);
 
 #ifdef PERF_TEST
   EXEC_PERF_TEST("Order", orderInfo->orderTime_, 100, 10);
@@ -602,13 +708,12 @@ std::tuple<int, OrderId> StgEngImpl::order(OrderInfoSPtr& orderInfo) {
 }
 
 int StgEngImpl::cancelOrder(OrderId orderId) {
-  auto [ret, orderInfo] = getOrdMgr()->getOrderInfo(orderId, DeepClone::False);
-  if (ret != 0) {
-    auto orderInfo = std::make_shared<OrderInfo>();
-    orderInfo->statusCode_ = ret;
+  const auto [statusCode, orderInfo] =
+      getOrdMgr()->getOrderInfo(orderId, DeepClone::True);
+  if (statusCode != 0) {
     LOG_W("[{}] Cancel order {} failed. [{} - {}]", appName_, orderId,
-          orderInfo->statusCode_, GetStatusMsg(orderInfo->statusCode_));
-    return ret;
+          statusCode, GetStatusMsg(statusCode));
+    return statusCode;
   }
 
   shmCliOfTDSrv_->asyncSendMsgWithZeroCopy(
@@ -618,18 +723,25 @@ int StgEngImpl::cancelOrder(OrderId orderId) {
               static_cast<OrderInfo*>(shmBufOfReq)->toShortStr());
       },
       MSG_ID_ON_CANCEL_ORDER, sizeof(OrderInfo));
-  cacheTaskOfSyncGroup(MSG_ID_ON_CANCEL_ORDER, orderInfo, SyncToRiskMgr::True,
-                       SyncToDB::False);
+
+  cacheSyncTaskGroup(MSG_ID_ON_CANCEL_ORDER, orderInfo, SyncToRiskMgr::True,
+                     SyncToDB::False);
 
   return 0;
 }
 
 int StgEngImpl::sub(StgInstId subscriber, const std::string& topic) {
-  return subMgr_->sub(subscriber, topic);
+  const auto statusCode = subMgr_->sub(subscriber, topic);
+  const auto s = fmt::format("{}-{}", getAppName(), subscriber);
+  topicMgr_->add(s, topic);
+  return statusCode;
 }
 
 int StgEngImpl::unSub(StgInstId subscriber, const std::string& topic) {
-  return subMgr_->unSub(subscriber, topic);
+  const auto statusCode = subMgr_->unSub(subscriber, topic);
+  const auto s = fmt::format("{}-{}", getAppName(), subscriber);
+  topicMgr_->remove(s, topic);
+  return statusCode;
 }
 
 std::tuple<int, std::string> StgEngImpl::queryHisMDBetween2Ts(
@@ -642,10 +754,6 @@ std::tuple<int, std::string> StgEngImpl::queryHisMDBetween2Ts(
       marketDataCond->ext_);
 }
 
-//
-// http://192.168.19.113/v1/QueryHisMD/between/Binance/Spot/BTC-USDT/Trades?tsBegin=1668989747663000&tsEnd=1668989747697000
-// http://192.168.19.113/v1/QueryHisMD/between/Binance/Spot/BTC-USDT/Books?level=20&tsBegin=1669032414507000&tsEnd=1669032415008000
-//
 std::tuple<int, std::string> StgEngImpl::queryHisMDBetween2Ts(
     MarketCode marketCode, SymbolType symbolType, const std::string& symbolCode,
     MDType mdType, std::uint64_t tsBegin, std::uint64_t tsEnd,
@@ -654,26 +762,21 @@ std::tuple<int, std::string> StgEngImpl::queryHisMDBetween2Ts(
   const auto prefix =
       fmt::format(prefixOfQueryHisMDBetween,
                   getConfig()["webSrv"].as<std::string>("localhost"));
-  if (mdType == MDType::Books) {
-    addr = fmt::format("{}/{}/{}/{}/{}?level={}&tsBegin={}&tsEnd={}", prefix,
-                       magic_enum::enum_name(marketCode),
-                       magic_enum::enum_name(symbolType), symbolCode,
-                       magic_enum::enum_name(mdType), ext, tsBegin, tsEnd);
-  } else if (mdType == MDType::Candle) {
+  if (mdType == MDType::Candle) {
     if (ext.empty()) {
       addr = fmt::format("{}/{}/{}/{}/{}?tsBegin={}&tsEnd={}", prefix,
-                         magic_enum::enum_name(marketCode),
+                         GetMarketName(marketCode),
                          magic_enum::enum_name(symbolType), symbolCode,
                          magic_enum::enum_name(mdType), tsBegin, tsEnd);
     } else {
-      addr = fmt::format("{}/{}/{}/{}/{}?detail=true&tsBegin={}&tsEnd={}",
-                         prefix, magic_enum::enum_name(marketCode),
+      addr = fmt::format("{}/{}/{}/{}/{}?tsBegin={}&tsEnd={}&freq={}", prefix,
+                         GetMarketName(marketCode),
                          magic_enum::enum_name(symbolType), symbolCode,
-                         magic_enum::enum_name(mdType), tsBegin, tsEnd);
+                         magic_enum::enum_name(mdType), tsBegin, tsEnd, ext);
     }
   } else {
     addr = fmt::format("{}/{}/{}/{}/{}?tsBegin={}&tsEnd={}", prefix,
-                       magic_enum::enum_name(marketCode),
+                       GetMarketName(marketCode),
                        magic_enum::enum_name(symbolType), symbolCode,
                        magic_enum::enum_name(mdType), tsBegin, tsEnd);
   }
@@ -689,7 +792,7 @@ std::tuple<int, std::string> StgEngImpl::queryHisMDBetween2Ts(
     LOG_W(statusMsg);
     return {SCODE_STG_SEND_HTTP_REQ_TO_QUERY_HIS_MD_FAILED, ""};
   } else {
-    LOG_D("Send http req success. {}", addr);
+    LOG_I("Send http req success. {}", addr);
   }
 
   return {0, rsp.text};
@@ -705,38 +808,30 @@ std::tuple<int, std::string> StgEngImpl::querySpecificNumOfHisMDBeforeTs(
       marketDataCond->ext_);
 }
 
-// http://192.168.19.113/v1/QueryHisMD/offset/Binance/Spot/BTC-USDT/Trades?ts=1668989747697000&offset=1
-// http://192.168.19.113/v1/QueryHisMD/offset/Binance/Spot/BTC-USDT/Books?level=20&ts=1669032414507000&offset=1000
 std::tuple<int, std::string> StgEngImpl::querySpecificNumOfHisMDBeforeTs(
     MarketCode marketCode, SymbolType symbolType, const std::string& symbolCode,
     MDType mdType, std::uint64_t ts, int num, const std::string& ext) {
   std::string addr;
   const auto prefix =
-      fmt::format(prefixOfQueryHisMDOffset,
+      fmt::format(prefixOfQueryHisMDBefore,
                   getConfig()["webSrv"].as<std::string>("localhost"));
-  if (mdType == MDType::Books) {
-    addr = fmt::format("{}/{}/{}/{}/{}?level={}&ts={}&offset={}", prefix,
-                       magic_enum::enum_name(marketCode),
-                       magic_enum::enum_name(symbolType), symbolCode,
-                       magic_enum::enum_name(mdType), ext, ts, -1 * num);
-  } else if (mdType == MDType::Candle) {
+  if (mdType == MDType::Candle) {
     if (ext.empty()) {
-      addr = fmt::format("{}/{}/{}/{}/{}?ts={}&offset={}", prefix,
-                         magic_enum::enum_name(marketCode),
+      addr = fmt::format("{}/{}/{}/{}/{}?ts={}&num={}", prefix,
+                         GetMarketName(marketCode),
                          magic_enum::enum_name(symbolType), symbolCode,
-                         magic_enum::enum_name(mdType), ts, -1 * num);
+                         magic_enum::enum_name(mdType), ts, num);
     } else {
-      addr = fmt::format("{}/{}/{}/{}/{}?detail=true&ts={}&offset={}", prefix,
-                         magic_enum::enum_name(marketCode),
+      addr = fmt::format("{}/{}/{}/{}/{}?ts={}&num={}&freq={}", prefix,
+                         GetMarketName(marketCode),
                          magic_enum::enum_name(symbolType), symbolCode,
-                         magic_enum::enum_name(mdType), ts, -1 * num);
+                         magic_enum::enum_name(mdType), ts, num, ext);
     }
-
   } else {
-    addr = fmt::format("{}/{}/{}/{}/{}?ts={}&offset={}", prefix,
-                       magic_enum::enum_name(marketCode),
+    addr = fmt::format("{}/{}/{}/{}/{}?ts={}&num={}", prefix,
+                       GetMarketName(marketCode),
                        magic_enum::enum_name(symbolType), symbolCode,
-                       magic_enum::enum_name(mdType), ts, -1 * num);
+                       magic_enum::enum_name(mdType), ts, num);
   }
 
   const auto timeoutOfQueryHisMD =
@@ -750,7 +845,7 @@ std::tuple<int, std::string> StgEngImpl::querySpecificNumOfHisMDBeforeTs(
     LOG_W(statusMsg);
     return {SCODE_STG_SEND_HTTP_REQ_TO_QUERY_HIS_MD_FAILED, ""};
   } else {
-    LOG_D("Send http req success. {}", addr);
+    LOG_I("Send http req success. {}", addr);
   }
 
   return {0, rsp.text};
@@ -766,35 +861,28 @@ std::tuple<int, std::string> StgEngImpl::querySpecificNumOfHisMDAfterTs(
       marketDataCond->ext_);
 }
 
-// http://192.168.19.113/v1/QueryHisMD/offset/Binance/Spot/BTC-USDT/Trades?ts=1668989747697000&offset=1
-// http://192.168.19.113/v1/QueryHisMD/offset/Binance/Spot/BTC-USDT/Books?level=20&ts=1669032414507000&offset=1000
 std::tuple<int, std::string> StgEngImpl::querySpecificNumOfHisMDAfterTs(
     MarketCode marketCode, SymbolType symbolType, const std::string& symbolCode,
     MDType mdType, std::uint64_t ts, int num, const std::string& ext) {
   std::string addr;
   const auto prefix =
-      fmt::format(prefixOfQueryHisMDOffset,
+      fmt::format(prefixOfQueryHisMDAfter,
                   getConfig()["webSrv"].as<std::string>("localhost"));
-  if (mdType == MDType::Books) {
-    addr = fmt::format("{}/{}/{}/{}/{}?level={}&ts={}&offset={}", prefix,
-                       magic_enum::enum_name(marketCode),
-                       magic_enum::enum_name(symbolType), symbolCode,
-                       magic_enum::enum_name(mdType), ext, ts, num);
-  } else if (mdType == MDType::Candle) {
+  if (mdType == MDType::Candle) {
     if (ext.empty()) {
-      addr = fmt::format("{}/{}/{}/{}/{}?ts={}&offset={}", prefix,
-                         magic_enum::enum_name(marketCode),
+      addr = fmt::format("{}/{}/{}/{}/{}?ts={}&num={}", prefix,
+                         GetMarketName(marketCode),
                          magic_enum::enum_name(symbolType), symbolCode,
                          magic_enum::enum_name(mdType), ts, num);
     } else {
-      addr = fmt::format("{}/{}/{}/{}/{}?detail=true&ts={}&offset={}", prefix,
-                         magic_enum::enum_name(marketCode),
+      addr = fmt::format("{}/{}/{}/{}/{}?ts={}&num={}&freq={}", prefix,
+                         GetMarketName(marketCode),
                          magic_enum::enum_name(symbolType), symbolCode,
-                         magic_enum::enum_name(mdType), ts, num);
+                         magic_enum::enum_name(mdType), ts, num, ext);
     }
   } else {
-    addr = fmt::format("{}/{}/{}/{}/{}?ts={}&offset={}", prefix,
-                       magic_enum::enum_name(marketCode),
+    addr = fmt::format("{}/{}/{}/{}/{}?ts={}&num={}", prefix,
+                       GetMarketName(marketCode),
                        magic_enum::enum_name(symbolType), symbolCode,
                        magic_enum::enum_name(mdType), ts, num);
   }
@@ -810,7 +898,7 @@ std::tuple<int, std::string> StgEngImpl::querySpecificNumOfHisMDAfterTs(
     LOG_W(statusMsg);
     return {SCODE_STG_SEND_HTTP_REQ_TO_QUERY_HIS_MD_FAILED, ""};
   } else {
-    LOG_D("Send http req success. {}", addr);
+    LOG_I("Send http req success. {}", addr);
   }
 
   return {0, rsp.text};

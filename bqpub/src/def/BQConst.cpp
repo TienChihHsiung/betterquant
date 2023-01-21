@@ -20,10 +20,22 @@ std::string GetMarketName(MarketCode marketCode) {
       return "Binance";
     case MarketCode::Coinbase:
       return "Coinbase";
-    case MarketCode::Ftx:
-      return "Ftx";
     case MarketCode::Kraken:
       return "Kraken";
+
+    case MarketCode::SSE:
+      return "SSE";
+    case MarketCode::SZSE:
+      return "SZSE";
+    case MarketCode::SHFE:
+      return "SHFE";
+    case MarketCode::ZCE:
+      return "ZCE";
+    case MarketCode::DCE:
+      return "DCE";
+    case MarketCode::CFFEX:
+      return "CFFEX";
+
     default:
       return "Others";
       break;
@@ -38,13 +50,26 @@ MarketCode GetMarketCode(const std::string& marketCodeName) {
     return MarketCode::Binance;
   } else if (marketCodeName == "Coinbase") {
     return MarketCode::Coinbase;
-  } else if (marketCodeName == "Ftx") {
-    return MarketCode::Ftx;
   } else if (marketCodeName == "Kraken") {
     return MarketCode::Kraken;
+
+  } else if (marketCodeName == "SSE") {
+    return MarketCode::SSE;
+  } else if (marketCodeName == "SZSE") {
+    return MarketCode::SZSE;
+  } else if (marketCodeName == "SHFE") {
+    return MarketCode::SHFE;
+  } else if (marketCodeName == "ZCE") {
+    return MarketCode::ZCE;
+  } else if (marketCodeName == "DCE") {
+    return MarketCode::DCE;
+  } else if (marketCodeName == "CFFEX") {
+    return MarketCode::CFFEX;
+
   } else {
     return MarketCode::Others;
   }
+
   return MarketCode::Others;
 }
 

@@ -50,7 +50,7 @@ class BOOST_SYMBOL_VISIBLE TDSrvRiskPluginFlowCtrl : public TDSrvRiskPlugin {
 
 }  // namespace bq::td::srv
 
-bq::td::srv::TDSrvRiskPluginFlowCtrl* Create(bq::td::srv::TDSrv* tdSrv) {
+inline bq::td::srv::TDSrvRiskPluginFlowCtrl* Create(bq::td::srv::TDSrv* tdSrv) {
   return new bq::td::srv::TDSrvRiskPluginFlowCtrl(tdSrv);
 }
 

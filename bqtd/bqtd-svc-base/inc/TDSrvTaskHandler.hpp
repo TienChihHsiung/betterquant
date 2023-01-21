@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include "def/BQDef.hpp"
 #include "util/Pch.hpp"
 
 namespace bq {
@@ -41,12 +42,15 @@ class TDSrvTaskHandler {
 
  private:
   void handleMsgIdOnOrder(SHMIPCAsyncTaskSPtr& asyncTask);
-  void handleMsgIdOnOrderInRealTDMode(OrderInfoSPtr& orderInfo);
-  void handleMsgIdOnOrderInSimedTDMode(OrderInfoSPtr& orderInfo);
-
   void handleMsgIdOnCancelOrder(SHMIPCAsyncTaskSPtr& asyncTask);
+
+#ifndef SIMED_MODE
+  void handleMsgIdOnOrderInRealTDMode(OrderInfoSPtr& orderInfo);
   void handleMsgIdOnCancelOrderInRealTDMode(OrderInfoSPtr& orderInfo);
+#else
+  void handleMsgIdOnOrderInSimedTDMode(OrderInfoSPtr& orderInfo);
   void handleMsgIdOnCancelOrderInSimedTDMode(OrderInfoSPtr& orderInfo);
+#endif
 
   void handleMsgIdSyncUnclosedOrderInfo(SHMIPCAsyncTaskSPtr& asyncTask);
   void handleMsgIdSyncAssetsSnapshot(SHMIPCAsyncTaskSPtr& asyncTask);

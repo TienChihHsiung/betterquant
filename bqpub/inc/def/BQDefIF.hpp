@@ -10,12 +10,10 @@
 
 #pragma once
 
+#include "def/BQConstIF.hpp"
 #include "util/PchBase.hpp"
 
 namespace bq {
-
-using TopicGroup = std::set<std::string>;
-using TopicGroupSPtr = std::shared_ptr<TopicGroup>;
 
 template <typename Task>
 struct AsyncTask;
@@ -40,5 +38,20 @@ using AcctId = std::uint16_t;
 
 using OrderId = std::uint64_t;
 using ExchOrderId = std::uint64_t;
+
+struct MDHeader {
+  std::uint64_t exchTs_;
+  std::uint64_t localTs_;
+  MarketCode marketCode_;
+  SymbolType symbolType_;
+  char symbolCode_[MAX_SYMBOL_CODE_LEN];
+  MDType mdType_;
+  std::string toStr() const;
+  std::string getTopicPrefix() const;
+  std::string toJson() const;
+};
+
+using TopicGroup = std::set<std::string>;
+using TopicGroupSPtr = std::shared_ptr<TopicGroup>;
 
 }  // namespace bq

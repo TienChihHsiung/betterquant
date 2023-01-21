@@ -37,7 +37,7 @@ PubSvc::PubSvc(RiskMgr* riskMgr)
 
 void PubSvc::initPnlUnReal(PosInfoGroup& posInfoGroup) {
   for (auto& posInfo : posInfoGroup) {
-    const auto topicPrefix = posInfo->getTopicPrefix();
+    const auto topicPrefix = posInfo->getTopicPrefixForSub();
     const auto topic =
         fmt::format("{}{}", topicPrefix, magic_enum::enum_name(MDType::Trades));
     const auto trades = riskMgr_->getMarketDataCache()->getLastTrades(topic);
@@ -46,7 +46,7 @@ void PubSvc::initPnlUnReal(PosInfoGroup& posInfoGroup) {
       continue;
     }
 
-    posInfo->updateTime_ = trades->tradeTs_;
+    posInfo->updateTime_ = trades->tradeTime_;
     if (posInfo->pos_ > 0) {
       posInfo->pnlUnReal_ =
           calcPnlOfCloseLong(posInfo->symbolType_, posInfo->avgOpenPrice_,

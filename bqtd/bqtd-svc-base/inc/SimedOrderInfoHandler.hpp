@@ -43,8 +43,11 @@ class SimedOrderInfoHandler {
   explicit SimedOrderInfoHandler(TDSvc* tdSvc);
 
  public:
+#ifdef SIMED_MODE
   void simOnOrder(OrderInfoSPTr& ordReq);
+#endif
 
+ private:
   void simOnOrder(OrderInfoSPTr& ordReq, const SimedTDInfoSPtr& simedTDInfo);
 
   db::symbolInfo::RecordSPtr simOnOrderConfirmedByExch(
@@ -60,6 +63,7 @@ class SimedOrderInfoHandler {
   void simOnOrderOfUnknownOrderStatus(OrderInfoSPTr& ordReq,
                                       const SimedTDInfoSPtr& simedTDInfo);
 
+ public:
   void simOnCancelOrder(OrderInfoSPTr& ordReq);
 
  private:

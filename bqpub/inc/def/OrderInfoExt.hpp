@@ -38,9 +38,10 @@ using StgInstInfoSPtr = std::shared_ptr<StgInstInfo>;
 OrderInfoSPtr MakeOrderInfo(const db::orderInfo::RecordSPtr& recOrderInfo);
 OrderInfoSPtr MakeOrderInfo(const db::tradeInfo::RecordSPtr& recTradeInfo);
 OrderInfoSPtr MakeOrderInfo(const StgInstInfoSPtr& stgInstInfo, AcctId acctId,
+                            MarketCode marketCode,
                             const std::string& symbolCode, Side side,
                             PosSide posSide, Decimal orderPrice,
-                            Decimal orderSize, AlgoId algoId = DEFAULT_ALGO_ID,
+                            Decimal orderSize, AlgoId algoId = 0,
                             const std::string& simedTDInfo = "");
 
 }  // namespace bq

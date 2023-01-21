@@ -38,6 +38,7 @@ struct AssetInfo {
   bool isEqual(const AssetInfoSPtr& assetInfo);
 
   std::string toStr() const;
+
   std::string getKey() const;
   void initKeyHash() const;
 
@@ -48,9 +49,11 @@ struct AssetInfo {
 
 using Key2AssetInfoGroup = std::map<std::string, AssetInfoSPtr>;
 using Key2AssetInfoGroupSPtr = std::shared_ptr<Key2AssetInfoGroup>;
+
 using AcctId2Key2AssetInfoGroup = std::map<AcctId, Key2AssetInfoGroupSPtr>;
 using AcctId2Key2AssetInfoGroupSPtr =
     std::shared_ptr<AcctId2Key2AssetInfoGroup>;
+
 bool isEqual(const Key2AssetInfoGroupSPtr& lhs,
              const Key2AssetInfoGroupSPtr& rhs);
 
@@ -60,11 +63,14 @@ struct AssetsUpdateForPub {
   std::uint16_t num_;
   char assetInfoGroup_[0];
 };
+using AssetsUpdateForPubSPtr = std::shared_ptr<AssetsUpdateForPub>;
+
 using AssetsSnapshot = std::map<std::string, AssetInfoSPtr>;
 using AssetsSnapshotSPtr = std::shared_ptr<AssetsSnapshot>;
-using AssetsUpdateForPubSPtr = std::shared_ptr<AssetsUpdateForPub>;
+
 using AssetsUpdate = std::map<std::string, AssetInfoSPtr>;
 using AssetsUpdateSPtr = std::shared_ptr<AssetsUpdate>;
+
 AssetsUpdateSPtr MakeAssetsUpdate(
     const AssetsUpdateForPubSPtr& assetsUpdateForPub);
 

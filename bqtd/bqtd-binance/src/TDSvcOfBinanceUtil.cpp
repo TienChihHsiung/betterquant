@@ -161,9 +161,9 @@ std::string getQueryStrOfOrder(const OrderInfoSPtr& orderInfo) {
   const auto recvWindow = CONFIG["recvWindow"].as<std::uint32_t>();
 
   const auto orderSize = RemoveTrailingZero(
-      fmt::format("{:.{}f}", orderInfo->orderSize_, DBL_PREC));
+      fmt::format("{:.{}f}", orderInfo->orderSize_, DBL_PREC_FOR_ORDER));
   const auto orderPrice = RemoveTrailingZero(
-      fmt::format("{:.{}f}", orderInfo->orderPrice_, DBL_PREC));
+      fmt::format("{:.{}f}", orderInfo->orderPrice_, DBL_PREC_FOR_ORDER));
 
   if (symbolType == SymbolType::Spot) {
     std::string query;

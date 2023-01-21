@@ -192,6 +192,7 @@ class StgInstTaskHandler(StgInstTaskHandlerBase):
         ret_of_order = self.stg_eng.order(
             stg_inst_info,
             acct_id=10001,
+            market_code=MarketCode.Binance,
             symbol_code="ADA-USDT",
             side=Side.Ask,
             pos_side=PosSide.Both,
@@ -230,6 +231,7 @@ class StgInstTaskHandler(StgInstTaskHandlerBase):
         ret_of_order = self.stg_eng.order(
             stg_inst_info,
             acct_id=10001,
+            market_code=MarketCode.Binance,
             symbol_code="BTC-USDT",
             side=Side.Bid,
             pos_side=PosSide.Both,

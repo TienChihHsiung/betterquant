@@ -114,6 +114,7 @@ else()
 endif()
 
 target_link_libraries(${PROJECT_NAME}
+    libboost_locale.a
     libcpr.a
     libcurl.a
     iceoryx_posh

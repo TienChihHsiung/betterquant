@@ -25,11 +25,11 @@ std::tuple<int, MarketDataCondSPtr> GetMarketDataCondFromTopic(
   }
 
   auto ret = std::make_shared<MarketDataCond>();
-  const auto marketCode = magic_enum::enum_cast<MarketCode>(fieldGroup[1]);
-  if (!marketCode.has_value()) {
+  const auto marketCode = GetMarketCode(fieldGroup[1]);
+  if (marketCode == MarketCode::Others) {
     return {SCODE_BQPUB_INVALID_TOPIC, nullptr};
   }
-  ret->marketCode_ = marketCode.value();
+  ret->marketCode_ = marketCode;
 
   const auto symbolType = magic_enum::enum_cast<SymbolType>(fieldGroup[2]);
   if (!symbolType.has_value()) {
@@ -47,23 +47,6 @@ std::tuple<int, MarketDataCondSPtr> GetMarketDataCondFromTopic(
 
   if (fieldGroup.size() == 6) {
     ret->ext_ = fieldGroup[5];
-
-    switch (ret->mdType_) {
-      case MDType::Books:
-        if (isNumber(ret->ext_) == false) {
-          return {SCODE_BQPUB_INVALID_TOPIC, nullptr};
-        }
-        break;
-
-      case MDType::Candle:
-        if (ret->ext_ != "detail") {
-          return {SCODE_BQPUB_INVALID_TOPIC, nullptr};
-        }
-        break;
-
-      default:
-        return {SCODE_BQPUB_INVALID_TOPIC, nullptr};
-    }
   }
 
   return {0, ret};

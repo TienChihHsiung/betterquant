@@ -19,9 +19,9 @@ struct WSCliAsyncTaskArg;
 using WSCliAsyncTaskArgSPtr = std::shared_ptr<WSCliAsyncTaskArg>;
 
 struct WSCliAsyncTaskArg {
-  WSCliAsyncTaskArg(WSMsgType wsMsgType, const std::any& extData)
+  WSCliAsyncTaskArg(MsgType wsMsgType, const std::any& extData)
       : wsMsgType_(wsMsgType), extData_(extData) {}
-  WSMsgType wsMsgType_;
+  MsgType wsMsgType_;
   std::any extData_;
 };
 

@@ -61,6 +61,7 @@ target_include_directories(${PROJECT_NAME}
     PUBLIC "${PROJECT_SOURCE_DIR}/src"
     PUBLIC "${PROJECT_BINARY_DIR}"
     PUBLIC "${MYSQLCPPCONN_INC_DIR}"
+    PUBLIC "${ABSEIL_INC_DIR}"
     PUBLIC "${ICEORYX_INC_DIR}"
     PUBLIC "${YYJSON_INC_DIR}"
     PUBLIC "${RAPIDJSON_INC_DIR}"
@@ -83,6 +84,8 @@ target_include_directories(${PROJECT_NAME}
 target_link_directories(${PROJECT_NAME}
     PUBLIC "${SOLUTION_ROOT_DIR}/lib/"
     PUBLIC "${MYSQLCPPCONN_LIB_DIR}"
+    PUBLIC "${ROBIN_MAP_INC_DIR}"
+    PUBLIC "${ABSEIL_LIB_DIR}"
     PUBLIC "${ICEORYX_LIB_DIR}"
     PUBLIC "${YYJSON_LIB_DIR}"
     PUBLIC "${NLOHMANN_JSON_LIB_DIR}"
@@ -115,6 +118,7 @@ else()
 endif()
 
 target_link_libraries(${PROJECT_NAME}
+    PUBLIC libboost_locale.a
     PUBLIC libcpr.a
     PUBLIC libcurl.a
     PUBLIC iceoryx_posh

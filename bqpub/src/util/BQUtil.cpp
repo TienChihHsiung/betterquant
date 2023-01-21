@@ -12,6 +12,8 @@
 
 #include "SHMIPC.hpp"
 #include "def/BQConst.hpp"
+#include "def/ConditionDef.hpp"
+#include "def/ConditionUtil.hpp"
 #include "def/DataStruOfAssets.hpp"
 #include "def/DataStruOfOthers.hpp"
 #include "def/DataStruOfStg.hpp"
@@ -21,6 +23,15 @@
 #include "util/String.hpp"
 
 namespace bq {
+
+std::string convertTopic(const std::string& topic) {
+  if (boost::starts_with(topic, "shm") == false) return topic;
+  std::string ret = topic;
+  boost::algorithm::erase_first(ret, "shm://");
+  boost::algorithm::replace_all(ret, ".", SEP_OF_TOPIC);
+  boost::algorithm::replace_all(ret, "/", SEP_OF_TOPIC);
+  return ret;
+}
 
 std::tuple<int, std::string> GetAddrFromTopic(const std::string& appName,
                                               const std::string& topic) {
@@ -56,6 +67,46 @@ std::tuple<int, std::string> GetChannelFromAddr(const std::string& shmSvcAddr) {
   return {0, ret};
 }
 
+std::tuple<std::string, TopicHash> MakeTopicInfo(const std::string& marketCode,
+                                                 const std::string& symbolType,
+                                                 const std::string& symbolCode,
+                                                 MDType mdType,
+                                                 const std::string& ext) {
+  auto topic = fmt::format("{}{}{}{}{}{}{}{}{}", TOPIC_PREFIX_OF_MARKET_DATA,
+                           SEP_OF_TOPIC, marketCode,  //
+                           SEP_OF_TOPIC, symbolType,  //
+                           SEP_OF_TOPIC, symbolCode,  //
+                           SEP_OF_TOPIC, magic_enum::enum_name(mdType));
+  if (!ext.empty()) {
+    topic.append(fmt::format("{}{}", SEP_OF_TOPIC, ext));
+  }
+  const auto topicHash = XXH3_64bits(topic.data(), topic.size());
+  return {topic, topicHash};
+}
+
+std::uint64_t GetHashFromTask(const SHMIPCTaskSPtr& task,
+                              const ConditionFieldGroup& conditionFieldGroup) {
+  std::uint64_t ret = 0;
+  const auto shmHeader = static_cast<const SHMHeader*>(task->data_);
+  switch (shmHeader->msgId_) {
+    case MSG_ID_ON_ORDER:
+    case MSG_ID_ON_CANCEL_ORDER:
+    case MSG_ID_ON_ORDER_RET:
+    case MSG_ID_ON_CANCEL_ORDER_RET: {
+      const auto orderInfo = static_cast<const OrderInfo*>(task->data_);
+      const auto s =
+          MakeConditioFieldInfoInStrFmt(orderInfo, conditionFieldGroup);
+      ret = XXH3_64bits(s.data(), s.size());
+    } break;
+    case MSG_ID_SYNC_ASSETS:
+      ret = static_cast<const AssetInfoNotify*>(task->data_)->acctId_;
+      break;
+    default:
+      break;
+  }
+  return ret;
+}
+
 AcctId GetAcctIdFromTask(const SHMIPCTaskSPtr& task) {
   AcctId ret = 0;
   const auto shmHeader = static_cast<const SHMHeader*>(task->data_);
@@ -75,50 +126,11 @@ AcctId GetAcctIdFromTask(const SHMIPCTaskSPtr& task) {
   return ret;
 }
 
-std::string convertTopic(const std::string& topic) {
-  if (boost::starts_with(topic, "shm") == false) return topic;
-  std::string ret = topic;
-  boost::algorithm::erase_first(ret, "shm://");
-  boost::algorithm::replace_all(ret, ".", SEP_OF_TOPIC);
-  boost::algorithm::replace_all(ret, "/", SEP_OF_TOPIC);
-  return ret;
-}
-
 std::string ToPrettyStr(Decimal value) {
   std::stringstream sstr;
-  sstr << std::setprecision(DBL_PREC) << value;
+  sstr << std::setprecision(DBL_PREC_FOR_PRINT) << value;
   std::string ret = sstr.str();
   return RemoveTrailingZero(ret);
-}
-
-std::string MakeCommonHttpBody(int statusCode, std::string data) {
-  const auto statusMsg = GetStatusMsg(statusCode);
-  auto ret = fmt::format(R"({{"statusCode":{},"stausMsg":"{}")", statusCode,
-                         statusMsg);
-  if (!data.empty()) {
-    data[0] = ',';
-  } else {
-    data = "}";
-  }
-  ret = ret + data;
-  return ret;
-}
-
-std::tuple<std::string, TopicHash> MakeTopicInfo(const std::string& marketCode,
-                                                 const std::string& symbolType,
-                                                 const std::string& symbolCode,
-                                                 MDType mdType,
-                                                 const std::string& ext) {
-  auto topic = fmt::format("{}{}{}{}{}{}{}{}{}", TOPIC_PREFIX_OF_MARKET_DATA,
-                           SEP_OF_TOPIC, marketCode,  //
-                           SEP_OF_TOPIC, symbolType,  //
-                           SEP_OF_TOPIC, symbolCode,  //
-                           SEP_OF_TOPIC, magic_enum::enum_name(mdType));
-  if (!ext.empty()) {
-    topic.append(fmt::format("{}{}", SEP_OF_TOPIC, ext));
-  }
-  const auto topicHash = XXH3_64bits(topic.data(), topic.size());
-  return {topic, topicHash};
 }
 
 // clang-format off

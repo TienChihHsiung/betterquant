@@ -13,7 +13,6 @@
 #include "AcctInfo.hpp"
 #include "AssetsMgr.hpp"
 #include "Config.hpp"
-#include "ExceedFlowCtrlHandler.hpp"
 #include "HttpCliOfExch.hpp"
 #include "OrdMgr.hpp"
 #include "SHMIPC.hpp"
@@ -30,7 +29,8 @@
 #include "def/BQDef.hpp"
 #include "def/DataStruOfOthers.hpp"
 #include "def/Def.hpp"
-#include "def/TaskOfSync.hpp"
+#include "def/SyncTask.hpp"
+#include "util/ExceedFlowCtrlHandler.hpp"
 #include "util/ExternalStatusCodeCache.hpp"
 #include "util/FlowCtrlSvc.hpp"
 #include "util/Literal.hpp"
@@ -44,7 +44,8 @@
 namespace bq::td::svc {
 
 int TDSvc::prepareInit() {
-  taskOfSyncGroup_.reserve(1024);
+  syncTaskGroup_ = std::make_shared<SyncTaskGroup>();
+  syncTaskGroup_->reserve(1024);
 
   auto retOfConfInit = Config::get_mutable_instance().init(configFilename_);
   if (retOfConfInit != 0) {
@@ -67,7 +68,6 @@ int TDSvc::doInit() {
   marketCode_ = CONFIG["marketCode"].as<std::string>();
   symbolType_ = CONFIG["symbolType"].as<std::string>();
   acctId_ = CONFIG["acctId"].as<AcctId>();
-  simedMode_ = CONFIG["simedMode"]["enable"].as<bool>(false);
 
   marketCodeEnum_ = GetMarketCode(marketCode_);
   if (marketCodeEnum_ == MarketCode::Others) {
@@ -108,15 +108,15 @@ int TDSvc::doInit() {
   initAssetsMgr();
   initOrdMgr();
 
-  if (isSimedMode()) {
-    simedOrderInfoHandler_ = std::make_shared<SimedOrderInfoHandler>(this);
-  } else {
-    assert(wsCliOfExch_ != nullptr && "wsCliOfExch_ != nullptr");
-    if (const auto ret = wsCliOfExch_->init(); ret != 0) {
-      LOG_E("Do init failed.");
-      return ret;
-    }
+#ifdef SIMED_MODE
+  simedOrderInfoHandler_ = std::make_shared<SimedOrderInfoHandler>(this);
+#else
+  assert(wsCliOfExch_ != nullptr && "wsCliOfExch_ != nullptr");
+  if (const auto ret = wsCliOfExch_->init(); ret != 0) {
+    LOG_E("Do init failed.");
+    return ret;
   }
+#endif
 
   tdSrvTaskHandler_ = std::make_shared<TDSrvTaskHandler>(this);
   initTDSrvTaskDispatcher();
@@ -124,7 +124,10 @@ int TDSvc::doInit() {
   initSHMCliOfRiskMgr();
 
   flowCtrlSvc_ = std::make_shared<FlowCtrlSvc>(CONFIG);
-  exceedFlowCtrlHandler_ = std::make_shared<ExceedFlowCtrlHandler>(this);
+  exceedFlowCtrlHandler_ =
+      std::make_shared<ExceedFlowCtrlHandler>([this](auto& asyncTask) {
+        getTDSrvTaskDispatcher()->dispatch(asyncTask);
+      });
 
   scheduleTaskBundle_ = std::make_shared<ScheduleTaskBundle>();
   initScheduleTaskBundle();
@@ -177,7 +180,7 @@ void TDSvc::initTrdSymbolCache() {
 void TDSvc::initExternalStatusCodeCache() {
   externalStatusCodeCache_ =
       std::make_shared<ExternalStatusCodeCache>(getDBEng());
-  externalStatusCodeCache_->load(getMarketCode(), getSymbolType());
+  externalStatusCodeCache_->load(getMarketCode(), 0);
 }
 
 int TDSvc::queryMaxNoUsedToCalcPos() {
@@ -314,47 +317,47 @@ void TDSvc::initSHMCliOfRiskMgr() {
 }
 
 void TDSvc::beforeInitScheduleTaskBundle() {
-  if (isSimedMode() == false) {
-    const auto secIntervalOfExtendConnLifecycle =
-        CONFIG["secIntervalOfExtendConnLifecycle"].as<std::uint32_t>();
-    getScheduleTaskBundle()->emplace_back(std::make_shared<ScheduleTask>(
-        "extendConnLifecycle",
-        [this]() {
-          auto asyncTask = MakeTDSrvSignal(MSG_ID_EXTEND_CONN_LIFECYCLE);
-          getTDSrvTaskDispatcher()->dispatch(asyncTask);
-          return true;
-        },
-        ExecAtStartup::False, secIntervalOfExtendConnLifecycle * 1000));
+#ifndef SIMED_MODE
+  const auto secIntervalOfExtendConnLifecycle =
+      CONFIG["secIntervalOfExtendConnLifecycle"].as<std::uint32_t>();
+  getScheduleTaskBundle()->emplace_back(std::make_shared<ScheduleTask>(
+      "extendConnLifecycle",
+      [this]() {
+        auto asyncTask = MakeTDSrvSignal(MSG_ID_EXTEND_CONN_LIFECYCLE);
+        getTDSrvTaskDispatcher()->dispatch(asyncTask);
+        return true;
+      },
+      ExecAtStartup::False, secIntervalOfExtendConnLifecycle * 1000));
 
-    const auto secIntervalOfSyncAssetsSnapshot =
-        CONFIG["secIntervalOfSyncAssetsSnapshot"].as<std::uint32_t>();
-    getScheduleTaskBundle()->emplace_back(std::make_shared<ScheduleTask>(
-        "syncAssetsSnapshot",
-        [this]() {
-          auto asyncTask = MakeTDSrvSignal(MSG_ID_SYNC_ASSETS_SNAPSHOT);
-          getTDSrvTaskDispatcher()->dispatch(asyncTask);
-          return true;
-        },
-        ExecAtStartup::True, secIntervalOfSyncAssetsSnapshot * 1000));
+  const auto secIntervalOfSyncAssetsSnapshot =
+      CONFIG["secIntervalOfSyncAssetsSnapshot"].as<std::uint32_t>();
+  getScheduleTaskBundle()->emplace_back(std::make_shared<ScheduleTask>(
+      "syncAssetsSnapshot",
+      [this]() {
+        auto asyncTask = MakeTDSrvSignal(MSG_ID_SYNC_ASSETS_SNAPSHOT);
+        getTDSrvTaskDispatcher()->dispatch(asyncTask);
+        return true;
+      },
+      ExecAtStartup::True, secIntervalOfSyncAssetsSnapshot * 1000));
 
-    const auto secAgoTheOrderNeedToBeSynced =
-        CONFIG["secAgoTheOrderNeedToBeSynced"].as<std::uint32_t>();
-    const auto secIntervalOfSyncUnclosedOrderInfo =
-        CONFIG["secIntervalOfSyncUnclosedOrderInfo"].as<std::uint32_t>();
-    getScheduleTaskBundle()->emplace_back(std::make_shared<ScheduleTask>(
-        "syncUnclosedOrderInfo",
-        [this, secAgoTheOrderNeedToBeSynced]() {
-          const auto& orderInfoGroup =
-              getOrdMgr()->getOrderInfoGroup(secAgoTheOrderNeedToBeSynced);
-          for (const auto& orderInfo : orderInfoGroup) {
-            auto asyncTask =
-                MakeTDSrvSignal(MSG_ID_SYNC_UNCLOSED_ORDER_INFO, orderInfo);
-            getTDSrvTaskDispatcher()->dispatch(asyncTask);
-          }
-          return true;
-        },
-        ExecAtStartup::True, secIntervalOfSyncUnclosedOrderInfo * 1000));
-  }
+  const auto secAgoTheOrderNeedToBeSynced =
+      CONFIG["secAgoTheOrderNeedToBeSynced"].as<std::uint32_t>();
+  const auto secIntervalOfSyncUnclosedOrderInfo =
+      CONFIG["secIntervalOfSyncUnclosedOrderInfo"].as<std::uint32_t>();
+  getScheduleTaskBundle()->emplace_back(std::make_shared<ScheduleTask>(
+      "syncUnclosedOrderInfo",
+      [this, secAgoTheOrderNeedToBeSynced]() {
+        const auto orderInfoGroup =
+            getOrdMgr()->getOrderInfoGroup(secAgoTheOrderNeedToBeSynced);
+        for (const auto& orderInfo : orderInfoGroup) {
+          auto asyncTask =
+              MakeTDSrvSignal(MSG_ID_SYNC_UNCLOSED_ORDER_INFO, orderInfo);
+          getTDSrvTaskDispatcher()->dispatch(asyncTask);
+        }
+        return true;
+      },
+      ExecAtStartup::True, secIntervalOfSyncUnclosedOrderInfo * 1000));
+#endif
 
   getScheduleTaskBundle()->emplace_back(std::make_shared<ScheduleTask>(
       "exceedFlowCtrlHandler",
@@ -370,7 +373,7 @@ void TDSvc::beforeInitScheduleTaskBundle() {
   getScheduleTaskBundle()->emplace_back(std::make_shared<ScheduleTask>(
       "reloadExternalStatusCode",
       [this]() {
-        externalStatusCodeCache_->reload(getMarketCode(), getSymbolType());
+        externalStatusCodeCache_->reload(getMarketCode(), 0);
         return true;
       },
       ExecAtStartup::False, secIntervalOfReloadExternalStatusCode * 1000));
@@ -388,7 +391,7 @@ void TDSvc::beforeInitScheduleTaskBundle() {
   getScheduleTaskBundle()->emplace_back(std::make_shared<ScheduleTask>(
       "syncTask",
       [this]() {
-        handleTaskOfSyncGroup();
+        handleSyncTaskGroup();
         return true;
       },
       ExecAtStartup::False, milliSecIntervalOfSyncTask));
@@ -402,23 +405,23 @@ int TDSvc::doRun() {
     return ret;
   }
 
-  if (isSimedMode() == false) {
-    if (auto ret = wsCliOfExch_->start(); ret != 0) {
-      LOG_E("Run failed.");
-      return ret;
-    }
+#ifndef SIMED_MODE
+  if (auto ret = wsCliOfExch_->start(); ret != 0) {
+    LOG_E("Run failed.");
+    return ret;
+  }
 
-    if (const auto [ret, addrOfWS] = getAddrOfWS(); ret != 0) {
+  if (const auto [ret, addrOfWS] = getAddrOfWS(); ret != 0) {
+    LOG_E("Run failed.");
+    return ret;
+  } else {
+    if (const auto [ret, no] = wsCliOfExch_->getWSCli()->connect(addrOfWS);
+        ret != 0) {
       LOG_E("Run failed.");
       return ret;
-    } else {
-      if (const auto [ret, no] = wsCliOfExch_->getWSCli()->connect(addrOfWS);
-          ret != 0) {
-        LOG_E("Run failed.");
-        return ret;
-      }
     }
   }
+#endif
 
   tdSrvTaskDispatcher_->start();
   shmCliOfTDSrv_->start();
@@ -447,28 +450,28 @@ void TDSvc::sendTDGWReg() {
       MSG_ID_ON_TDGW_REG, sizeof(TDGWReg));
 }
 
-void TDSvc::cacheTaskOfSyncGroup(MsgId msgId, const std::any& task,
-                                 SyncToRiskMgr syncToRiskMgr,
-                                 SyncToDB syncToDB) {
+void TDSvc::cacheSyncTaskGroup(MsgId msgId, const std::any& task,
+                               SyncToRiskMgr syncToRiskMgr, SyncToDB syncToDB) {
   {
-    std::lock_guard<std::ext::spin_mutex> guard(mtxTaskOfSyncGroup_);
-    taskOfSyncGroup_.emplace_back(
-        std::make_shared<TaskOfSync>(msgId, task, syncToRiskMgr, syncToDB));
+    std::lock_guard<std::ext::spin_mutex> guard(mtxSyncTaskGroup_);
+    syncTaskGroup_->emplace_back(
+        std::make_shared<SyncTask>(msgId, task, syncToRiskMgr, syncToDB));
   }
 }
 
-void TDSvc::handleTaskOfSyncGroup() {
-  std::vector<TaskOfSyncSPtr> taskGroup;
+void TDSvc::handleSyncTaskGroup() {
+  auto syncTaskGroup = std::make_shared<SyncTaskGroup>();
   {
-    std::lock_guard<std::ext::spin_mutex> guard(mtxTaskOfSyncGroup_);
-    std::swap(taskGroup, taskOfSyncGroup_);
+    std::lock_guard<std::ext::spin_mutex> guard(mtxSyncTaskGroup_);
+    syncTaskGroup.swap(syncTaskGroup_);
   }
 
-  if (taskGroup.size() > 100) {
-    LOG_W("Too many unprocessed task of sync. [num = {}]", taskGroup.size());
+  if (syncTaskGroup->size() > 100) {
+    LOG_W("Too many unprocessed task of sync. [num = {}]",
+          syncTaskGroup->size());
   }
 
-  for (const auto& rec : taskGroup) {
+  for (const auto& rec : *syncTaskGroup) {
     if (rec->syncToRiskMgr_ == SyncToRiskMgr::False) continue;
     if (rec->msgId_ == MSG_ID_ON_ORDER || rec->msgId_ == MSG_ID_ON_ORDER_RET ||
         rec->msgId_ == MSG_ID_ON_CANCEL_ORDER ||
@@ -493,7 +496,7 @@ void TDSvc::handleTaskOfSyncGroup() {
     }
   }
 
-  for (const auto& rec : taskGroup) {
+  for (const auto& rec : *syncTaskGroup) {
     if (rec->syncToDB_ == SyncToDB::False) continue;
     if (rec->msgId_ == MSG_ID_ON_ORDER || rec->msgId_ == MSG_ID_ON_ORDER_RET ||
         rec->msgId_ == MSG_ID_ON_CANCEL_ORDER ||
@@ -553,9 +556,9 @@ void TDSvc::doExit(const boost::system::error_code* ec, int signalNum) {
   shmCliOfRiskMgr_->stop();
   shmCliOfTDSrv_->stop();
   tdSrvTaskDispatcher_->stop();
-  if (isSimedMode() == false) {
-    wsCliOfExch_->stop();
-  }
+#ifndef SIMED_MODE
+  wsCliOfExch_->stop();
+#endif
   tblMonitorOfSymbolInfo_->stop();
   getDBEng()->stop();
 }

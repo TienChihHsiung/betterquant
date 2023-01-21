@@ -10,7 +10,6 @@
 
 #include "TDSrvRiskPlugin.hpp"
 
-#include "ConfigOfPlugin.hpp"
 #include "TDSrv.hpp"
 #include "util/File.hpp"
 #include "util/Logger.hpp"
@@ -21,15 +20,13 @@ namespace bq::td::srv {
 TDSrvRiskPlugin::TDSrvRiskPlugin(TDSrv* tdSrv) : tdSrv_(tdSrv) {}
 
 int TDSrvRiskPlugin::init(const std::string& configFilename) {
-  if (const auto ret =
-          ConfigOfPlugin::get_mutable_instance().init(configFilename);
-      ret != 0) {
-    const auto statusMsg = fmt::format(
-        "Init risk plug in {} failed "
-        "because of init config by file {} failed. ",
-        name(), configFilename);
+  try {
+    node_ = YAML::LoadFile(configFilename);
+  } catch (const std::exception& e) {
+    const auto statusMsg = fmt::format("Init config by file {} failed. [{}]",
+                                       configFilename, e.what());
     std::cerr << statusMsg << std::endl;
-    return ret;
+    return -1;
   }
 
   logger_ = makeLogger(configFilename);
@@ -43,10 +40,10 @@ int TDSrvRiskPlugin::init(const std::string& configFilename) {
   }
 
   name_ = fmt::format("{}-v{}",  //
-                      CONFIG_OF_PLUGIN["name"].as<std::string>(),
-                      CONFIG_OF_PLUGIN["version"].as<std::string>());
+                      node_["name"].as<std::string>(),
+                      node_["version"].as<std::string>());
 
-  enable_ = CONFIG_OF_PLUGIN["enable"].as<bool>(false);
+  enable_ = node_["enable"].as<bool>(false);
 
   const auto configFileCont = LoadFileContToStr(configFilename);
   md5SumOfConf_ = MD5Sum(configFileCont);
@@ -54,13 +51,27 @@ int TDSrvRiskPlugin::init(const std::string& configFilename) {
   return 0;
 }
 
+void TDSrvRiskPlugin::onThreadStart(std::uint32_t threadNo) {
+  L_I(logger(), "Risk plugin {} thread {} start.", name(), threadNo);
+  doOnThreadStart(threadNo);
+}
+
+void TDSrvRiskPlugin::doOnThreadStart(std::uint32_t threadNo) {}
+
+void TDSrvRiskPlugin::onThreadExit(std::uint32_t threadNo) {
+  L_I(logger(), "Risk plugin {} thread {} exit.", name(), threadNo);
+  doOnThreadExit(threadNo);
+}
+
+void TDSrvRiskPlugin::doOnThreadExit(std::uint32_t threadNo) {}
+
 int TDSrvRiskPlugin::load() {
-  LOG_I("Load risk plugin {}.", name());
+  L_I(logger(), "Load risk plugin {}.", name());
   return doLoad();
 }
 
 void TDSrvRiskPlugin::unload() {
-  LOG_I("Unload risk plugin {}.", name());
+  L_I(logger(), "Unload risk plugin {}.", name());
   doUnload();
 }
 

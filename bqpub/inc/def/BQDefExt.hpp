@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include "def/BQConstIF.hpp"
+#include "def/DefIF.hpp"
 #include "util/PchBase.hpp"
 
 namespace bq::web {
@@ -24,5 +26,12 @@ struct AsyncTask;
 
 using WSCliAsyncTask = AsyncTask<bq::web::TaskFromSrvSPtr>;
 using WSCliAsyncTaskSPtr = std::shared_ptr<WSCliAsyncTask>;
+
+struct RawMD;
+using RawMDSPtr = std::shared_ptr<RawMD>;
+using RawMDAsyncTask = AsyncTask<RawMDSPtr>;
+using RawMDAsyncTaskSPtr = std::shared_ptr<RawMDAsyncTask>;
+
+std::string MakeTopic(const RawMDSPtr& rawMD);
 
 }  // namespace bq

@@ -19,8 +19,8 @@
 #include "WSCliOfExch.hpp"
 #include "def/BQDef.hpp"
 #include "def/DataStruOfOthers.hpp"
+#include "def/SyncTask.hpp"
 #include "def/TDWSCliAsyncTaskArg.hpp"
-#include "def/TaskOfSync.hpp"
 #include "util/ExternalStatusCodeCache.hpp"
 #include "util/Logger.hpp"
 #include "util/TaskDispatcher.hpp"
@@ -38,7 +38,7 @@ void HttpCliOfExch::handleRspOfOrder(OrderInfoSPtr ordReq, cpr::Response rsp) {
 
     ordReq->statusCode_ =
         tdSvc_->getExternalStatusCodeCache()->getAndSetStatusCodeIfNotExists(
-            tdSvc_->getMarketCode(), tdSvc_->getSymbolType(),
+            tdSvc_->getMarketCode(), ordReq->userId_,
             fmt::format("{}", externalStatusCode), externalStatusMsg, -1);
 
     if (ordReq->statusCode_ != 0) {
@@ -55,8 +55,8 @@ void HttpCliOfExch::handleRspOfOrder(OrderInfoSPtr ordReq, cpr::Response rsp) {
           [&](void* shmBuf) { InitMsgBody(shmBuf, *orderInfoInOrdMgr); },
           MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
 
-      tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
-                                   SyncToRiskMgr::True, SyncToDB::True);
+      tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
+                                 SyncToRiskMgr::True, SyncToDB::True);
     }
 
     return;
@@ -76,7 +76,7 @@ void HttpCliOfExch::handleRspOfCancelOrder(OrderInfoSPtr ordReq,
 
     ordReq->statusCode_ =
         tdSvc_->getExternalStatusCodeCache()->getAndSetStatusCodeIfNotExists(
-            tdSvc_->getMarketCode(), tdSvc_->getSymbolType(),
+            tdSvc_->getMarketCode(), ordReq->userId_,
             fmt::format("{}", externalStatusCode), externalStatusMsg, -1);
 
     tdSvc_->getSHMCliOfTDSrv()->asyncSendMsgWithZeroCopy(
@@ -84,8 +84,8 @@ void HttpCliOfExch::handleRspOfCancelOrder(OrderInfoSPtr ordReq,
         MSG_ID_ON_CANCEL_ORDER_RET, sizeof(OrderInfo));
 
     // not sync to db
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_CANCEL_ORDER_RET, ordReq,
-                                 SyncToRiskMgr::True, SyncToDB::False);
+    tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_CANCEL_ORDER_RET, ordReq,
+                               SyncToRiskMgr::True, SyncToDB::False);
     return;
   }
 }
@@ -109,8 +109,8 @@ void HttpCliOfExch::syncAssetsSnapshot() {
     NotifyAssetInfo(tdSvc_->getSHMCliOfTDSrv(), tdSvc_->getAcctId(),
                     updateInfoOfAssetGroup);
 
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_SYNC_ASSETS, updateInfoOfAssetGroup,
-                                 SyncToRiskMgr::True, SyncToDB::True);
+    tdSvc_->cacheSyncTaskGroup(MSG_ID_SYNC_ASSETS, updateInfoOfAssetGroup,
+                               SyncToRiskMgr::True, SyncToDB::True);
     updateInfoOfAssetGroup->print();
   }
 }
@@ -122,7 +122,7 @@ void HttpCliOfExch::syncUnclosedOrderInfo(
     return;
   }
   const auto wsCliAsyncTaskArg = std::make_shared<WSCliAsyncTaskArg>(
-      WSMsgType::SyncUnclosedOrder, orderInfoFromExch);
+      MsgType::SyncUnclosedOrder, orderInfoFromExch);
   auto asyncTask = std::make_shared<WSCliAsyncTask>(nullptr, wsCliAsyncTaskArg);
   tdSvc_->getWSCliOfExch()->getTaskDispatcher()->dispatch(asyncTask);
 }

@@ -52,6 +52,7 @@ target_link_directories(${TEST_PROJECT_NAME}
     )
 
 target_link_libraries(${TEST_PROJECT_NAME}
+    libboost_locale.a
     libyyjson.a
     libfmt.a
     libgtest.a

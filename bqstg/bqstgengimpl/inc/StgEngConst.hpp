@@ -16,7 +16,9 @@ namespace bq::stg {
 
 const static std::string prefixOfQueryHisMDBetween =
     "http://{}/v1/QueryHisMD/between";
-const static std::string prefixOfQueryHisMDOffset =
-    "http://{}/v1/QueryHisMD/offset";
+const static std::string prefixOfQueryHisMDBefore =
+    "http://{}/v1/QueryHisMD/before";
+const static std::string prefixOfQueryHisMDAfter =
+    "http://{}/v1/QueryHisMD/after";
 
 }  // namespace bq::stg

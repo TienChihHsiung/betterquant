@@ -11,7 +11,6 @@
 #include "TDSrvTaskHandler.hpp"
 
 #include "AssetsMgr.hpp"
-#include "ExceedFlowCtrlHandler.hpp"
 #include "HttpCliOfExch.hpp"
 #include "OrdMgr.hpp"
 #include "PosMgr.hpp"
@@ -27,8 +26,9 @@
 #include "def/DataStruOfTD.hpp"
 #include "def/OrderInfoIF.hpp"
 #include "def/SimedTDInfo.hpp"
-#include "def/TaskOfSync.hpp"
+#include "def/SyncTask.hpp"
 #include "util/Datetime.hpp"
+#include "util/ExceedFlowCtrlHandler.hpp"
 #include "util/FlowCtrlSvc.hpp"
 #include "util/Logger.hpp"
 #include "util/TaskDispatcher.hpp"
@@ -93,8 +93,8 @@ void TDSrvTaskHandler::handleMsgIdOnOrder(SHMIPCAsyncTaskSPtr& asyncTask) {
         [&](void* shmBuf) { InitMsgBody(shmBuf, *ordReq); },
         MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
 
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, ordReq,
-                                 SyncToRiskMgr::True, SyncToDB::True);
+    tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, ordReq, SyncToRiskMgr::True,
+                               SyncToDB::True);
     return;
   }
 
@@ -119,75 +119,20 @@ void TDSrvTaskHandler::handleMsgIdOnOrder(SHMIPCAsyncTaskSPtr& asyncTask) {
       },
       MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
 
-  tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET,
-                               std::make_shared<OrderInfo>(*ordReq),
-                               SyncToRiskMgr::True, SyncToDB::True);
+  tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET,
+                             std::make_shared<OrderInfo>(*ordReq),
+                             SyncToRiskMgr::True, SyncToDB::True);
 
 #ifdef PERF_TEST
   EXEC_PERF_TEST("Order", ordReq->orderTime_, 100, 10);
   return;
 #endif
 
-  if (tdSvc_->isSimedMode() == false) {
-    handleMsgIdOnOrderInRealTDMode(ordReq);
-  } else {
-    handleMsgIdOnOrderInSimedTDMode(ordReq);
-  }
-}
-
-void TDSrvTaskHandler::handleMsgIdOnOrderInRealTDMode(OrderInfoSPtr& ordReq) {
-  if (strlen(ordReq->simedTDInfo_) != 0) {
-    ordReq->orderStatus_ = OrderStatus::Failed;
-    ordReq->statusCode_ = SCODE_TD_SVC_REAL_TD_MODE_RECV_SIMED_TD_ORDER;
-    LOG_W("Handle order in real td mode failed. [{} - {}] {}",
-          ordReq->statusCode_, GetStatusMsg(ordReq->statusCode_),
-          ordReq->toShortStr());
-    tdSvc_->getOrdMgr()->remove(ordReq->orderId_);
-    tdSvc_->getSHMCliOfTDSrv()->asyncSendMsgWithZeroCopy(
-        [&](void* shmBuf) { InitMsgBody(shmBuf, *ordReq); },
-        MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
-
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, ordReq,
-                                 SyncToRiskMgr::True, SyncToDB::True);
-    return;
-  }
-
-  if (const auto ret = tdSvc_->getHttpCliOfExch()->order(
-          std::make_shared<OrderInfo>(*ordReq));
-      ret != 0) {
-    LOG_W("Handle order in real td mode failed. {}", ordReq->toShortStr());
-    ordReq->orderStatus_ = OrderStatus::Failed;
-    ordReq->statusCode_ = ret;
-    tdSvc_->getOrdMgr()->remove(ordReq->orderId_);
-
-    tdSvc_->getSHMCliOfTDSrv()->asyncSendMsgWithZeroCopy(
-        [&](void* shmBuf) { InitMsgBody(shmBuf, *ordReq); },
-        MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
-
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, ordReq,
-                                 SyncToRiskMgr::True, SyncToDB::True);
-    return;
-  }
-}
-
-void TDSrvTaskHandler::handleMsgIdOnOrderInSimedTDMode(OrderInfoSPtr& ordReq) {
-  if (strlen(ordReq->simedTDInfo_) == 0) {
-    ordReq->orderStatus_ = OrderStatus::Failed;
-    ordReq->statusCode_ = SCODE_TD_SVC_SIMED_TD_MODE_RECV_REAL_TD_ORDER;
-    LOG_W("Handle order in simed td mode failed. [{} - {}] {}",
-          ordReq->statusCode_, GetStatusMsg(ordReq->statusCode_),
-          ordReq->toShortStr());
-    tdSvc_->getOrdMgr()->remove(ordReq->orderId_);
-    tdSvc_->getSHMCliOfTDSrv()->asyncSendMsgWithZeroCopy(
-        [&](void* shmBuf) { InitMsgBody(shmBuf, *ordReq); },
-        MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
-
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, ordReq,
-                                 SyncToRiskMgr::True, SyncToDB::True);
-    return;
-  }
-
-  tdSvc_->getSimedOrderInfoHandler()->simOnOrder(ordReq);
+#ifndef SIMED_MODE
+  handleMsgIdOnOrderInRealTDMode(ordReq);
+#else
+  handleMsgIdOnOrderInSimedTDMode(ordReq);
+#endif
 }
 
 void TDSrvTaskHandler::handleMsgIdOnCancelOrder(
@@ -202,35 +147,44 @@ void TDSrvTaskHandler::handleMsgIdOnCancelOrder(
     ordReq->statusCode_ = SCODE_TD_SVC_EXCEED_FLOW_CTRL;
 
     tdSvc_->getSHMCliOfTDSrv()->asyncSendMsgWithZeroCopy(
-        [&](void* shmBuf) { InitMsgBody(shmBuf, ordReq.get()); },
+        [&](void* shmBuf) { InitMsgBody(shmBuf, *ordReq); },
         MSG_ID_ON_CANCEL_ORDER_RET, sizeof(OrderInfo));
 
     // not sync to db
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_CANCEL_ORDER_RET, ordReq,
-                                 SyncToRiskMgr::True, SyncToDB::False);
+    tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_CANCEL_ORDER_RET, ordReq,
+                               SyncToRiskMgr::True, SyncToDB::False);
     return;
   }
 
-  if (tdSvc_->isSimedMode() == false) {
-    handleMsgIdOnCancelOrderInRealTDMode(ordReq);
-  } else {
-    handleMsgIdOnCancelOrderInSimedTDMode(ordReq);
+#ifndef SIMED_MODE
+  handleMsgIdOnCancelOrderInRealTDMode(ordReq);
+#else
+  handleMsgIdOnCancelOrderInSimedTDMode(ordReq);
+#endif
+}
+
+#ifndef SIMED_MODE
+void TDSrvTaskHandler::handleMsgIdOnOrderInRealTDMode(OrderInfoSPtr& ordReq) {
+  if (const auto ret = tdSvc_->getHttpCliOfExch()->order(
+          std::make_shared<OrderInfo>(*ordReq));
+      ret != 0) {
+    LOG_W("Handle order in real td mode failed. {}", ordReq->toShortStr());
+    ordReq->orderStatus_ = OrderStatus::Failed;
+    ordReq->statusCode_ = ret;
+    tdSvc_->getOrdMgr()->remove(ordReq->orderId_);
+
+    tdSvc_->getSHMCliOfTDSrv()->asyncSendMsgWithZeroCopy(
+        [&](void* shmBuf) { InitMsgBody(shmBuf, *ordReq); },
+        MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
+
+    tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, ordReq, SyncToRiskMgr::True,
+                               SyncToDB::True);
+    return;
   }
 }
 
 void TDSrvTaskHandler::handleMsgIdOnCancelOrderInRealTDMode(
     OrderInfoSPtr& ordReq) {
-  if (strlen(ordReq->simedTDInfo_) != 0) {
-    ordReq->statusCode_ = SCODE_TD_SVC_REAL_TD_MODE_RECV_SIMED_TD_ORDER_CANCEL;
-    LOG_W("Handle cancel order in real td mode failed. [{} - {}] {}",
-          ordReq->statusCode_, GetStatusMsg(ordReq->statusCode_),
-          ordReq->toShortStr());
-    tdSvc_->getSHMCliOfTDSrv()->asyncSendMsgWithZeroCopy(
-        [&](void* shmBuf) { InitMsgBody(shmBuf, *ordReq); },
-        MSG_ID_ON_CANCEL_ORDER_RET, sizeof(OrderInfo));
-    return;
-  }
-
   if (const auto ret = tdSvc_->getHttpCliOfExch()->cancelOrder(
           std::make_shared<OrderInfo>(*ordReq));
       ret != 0) {
@@ -238,20 +192,42 @@ void TDSrvTaskHandler::handleMsgIdOnCancelOrderInRealTDMode(
     ordReq->statusCode_ = ret;
 
     tdSvc_->getSHMCliOfTDSrv()->asyncSendMsgWithZeroCopy(
-        [&](void* shmBuf) { InitMsgBody(shmBuf, ordReq.get()); },
+        [&](void* shmBuf) { InitMsgBody(shmBuf, *ordReq); },
         MSG_ID_ON_CANCEL_ORDER_RET, sizeof(OrderInfo));
 
     // not sync to db
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_CANCEL_ORDER_RET, ordReq,
-                                 SyncToRiskMgr::True, SyncToDB::False);
+    tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_CANCEL_ORDER_RET, ordReq,
+                               SyncToRiskMgr::True, SyncToDB::False);
     return;
   }
 }
 
+#else
+
+void TDSrvTaskHandler::handleMsgIdOnOrderInSimedTDMode(OrderInfoSPtr& ordReq) {
+  if (ordReq->simedTDInfo_[0] == '\0') {
+    ordReq->orderStatus_ = OrderStatus::Failed;
+    ordReq->statusCode_ = SCODE_TD_SVC_SIMED_RECV_REAL_ORDER;
+    LOG_W("Handle order in simed td mode failed. [{} - {}] {}",
+          ordReq->statusCode_, GetStatusMsg(ordReq->statusCode_),
+          ordReq->toShortStr());
+    tdSvc_->getOrdMgr()->remove(ordReq->orderId_);
+    tdSvc_->getSHMCliOfTDSrv()->asyncSendMsgWithZeroCopy(
+        [&](void* shmBuf) { InitMsgBody(shmBuf, *ordReq); },
+        MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
+
+    tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, ordReq, SyncToRiskMgr::True,
+                               SyncToDB::True);
+    return;
+  }
+
+  tdSvc_->getSimedOrderInfoHandler()->simOnOrder(ordReq);
+}
+
 void TDSrvTaskHandler::handleMsgIdOnCancelOrderInSimedTDMode(
     OrderInfoSPtr& ordReq) {
-  if (strlen(ordReq->simedTDInfo_) == 0) {
-    ordReq->statusCode_ = SCODE_TD_SVC_SIMED_TD_MODE_RECV_REAL_TD_ORDER_CANCEL;
+  if (ordReq->simedTDInfo_[0] == '\0') {
+    ordReq->statusCode_ = SCODE_TD_SVC_SIMED_RECV_REAL_ORDER_CANCEL;
     LOG_W("Handle cancel order in simed td mode failed. [{} - {}] {}",
           ordReq->statusCode_, GetStatusMsg(ordReq->statusCode_),
           ordReq->toShortStr());
@@ -263,6 +239,7 @@ void TDSrvTaskHandler::handleMsgIdOnCancelOrderInSimedTDMode(
 
   tdSvc_->getSimedOrderInfoHandler()->simOnCancelOrder(ordReq);
 }
+#endif
 
 void TDSrvTaskHandler::handleMsgIdSyncUnclosedOrderInfo(
     SHMIPCAsyncTaskSPtr& asyncTask) {

@@ -15,6 +15,11 @@
 #include "util/Pch.hpp"
 #include "util/SvcBase.hpp"
 
+namespace bq::tdeng {
+class TDEngConnpool;
+using TDEngConnpoolSPtr = std::shared_ptr<TDEngConnpool>;
+}  // namespace bq::tdeng
+
 namespace bq {
 
 template <typename Task>
@@ -32,6 +37,7 @@ class WebSrv : public SvcBase, public boost::serialization::singleton<WebSrv> {
 
  private:
   int initDBEng();
+  int initTDEng();
   int initWebSrvTaskDispatcher();
   void initSHMSrv();
 
@@ -49,6 +55,7 @@ class WebSrv : public SvcBase, public boost::serialization::singleton<WebSrv> {
 
  public:
   db::DBEngSPtr getDBEng() const { return dbEng_; }
+  tdeng::TDEngConnpoolSPtr getTDEngConnpool() const { return tdEngConnpool_; }
 
   TaskDispatcherSPtr<SHMIPCTaskSPtr> getWebSrvTaskDispatcher() const {
     return webSrvTaskDispatcher_;
@@ -58,6 +65,7 @@ class WebSrv : public SvcBase, public boost::serialization::singleton<WebSrv> {
 
  private:
   db::DBEngSPtr dbEng_{nullptr};
+  tdeng::TDEngConnpoolSPtr tdEngConnpool_{nullptr};
 
   TaskDispatcherSPtr<SHMIPCTaskSPtr> webSrvTaskDispatcher_{nullptr};
   SHMSrvSPtr shmSrvOfStgEng_{nullptr};

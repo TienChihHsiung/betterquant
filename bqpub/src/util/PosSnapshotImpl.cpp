@@ -10,10 +10,12 @@
 
 #include "util/PosSnapshotImpl.hpp"
 
+#include "def/ConditionUtil.hpp"
 #include "def/Pnl.hpp"
 #include "def/PosInfo.hpp"
 #include "def/StatusCode.hpp"
 #include "def/SymbolInfo.hpp"
+#include "util/BQUtil.hpp"
 #include "util/Logger.hpp"
 
 namespace bq {
@@ -41,7 +43,7 @@ std::tuple<int, PnlSPtr> PosSnapshotImpl::queryPnl(
     return ret;
   };
 
-  const auto groupCond = convQueryCond(queryCond);
+  const auto groupCond = ExtractFieldName(queryCond);
   if (groupCond.empty()) {
     LOG_W("Query pnl by {} failed, maybe the query cond is invalid.",
           queryCond);
@@ -128,7 +130,7 @@ std::tuple<int, PosInfoGroupSPtr> PosSnapshotImpl::queryPosInfoGroup(
     return ret;
   };
 
-  const auto groupCond = convQueryCond(queryCond);
+  const auto groupCond = ExtractFieldName(queryCond);
   if (groupCond.empty()) {
     LOG_W("Query posinfo group by {} failed, maybe the query cond is invalid.",
           groupCond);
@@ -161,7 +163,7 @@ std::tuple<int, Key2PosInfoBundleSPtr> PosSnapshotImpl::queryPosInfoGroupBy(
           if (iter == std::end(FieldName2NoInPosInfo)) return std::string("");
           const auto fieldValue = fieldValueGroupInKey[iter->second];
           ret = ret + fmt::format("{}={}{}", fieldNameInCond, fieldValue,
-                                  SEP_OF_GROUP_COND);
+                                  SEP_OF_COND_AND);
         }
         if (!ret.empty()) ret.pop_back();
         return ret;
@@ -175,7 +177,7 @@ std::tuple<int, Key2PosInfoBundleSPtr> PosSnapshotImpl::queryPosInfoGroupBy(
 
   std::vector<std::string> fieldNameGroupInCond;
   boost::algorithm::split(fieldNameGroupInCond, groupCond,
-                          boost::is_any_of(SEP_OF_GROUP_COND));
+                          boost::is_any_of(SEP_OF_COND_AND));
   if (fieldNameGroupInCond.empty()) {
     LOG_W(
         "Query posinfo group by {} failed "
@@ -208,28 +210,6 @@ std::tuple<int, Key2PosInfoBundleSPtr> PosSnapshotImpl::queryPosInfoGroupBy(
 
   cond2Key2PosInfoBundle_[groupCond] = key2PosInfoBundle;
   return {0, key2PosInfoBundle};
-}
-
-std::string PosSnapshotImpl::convQueryCond(const std::string& queryCond) {
-  std::vector<std::string> fieldName2ValueGroup;
-  boost::split(fieldName2ValueGroup, queryCond,
-               boost::is_any_of(SEP_OF_GROUP_COND));
-  if (fieldName2ValueGroup.empty()) {
-    return "";
-  }
-
-  std::string groupCond;
-  for (const auto& rec : fieldName2ValueGroup) {
-    std::vector<std::string> fieldName2Value;
-    boost::split(fieldName2Value, rec, boost::is_any_of("="));
-    if (fieldName2Value.size() != 2) {
-      return "";
-    }
-    groupCond = groupCond + fieldName2Value[0] + SEP_OF_GROUP_COND;
-  }
-  if (!groupCond.empty()) groupCond.pop_back();
-
-  return groupCond;
 }
 
 }  // namespace bq

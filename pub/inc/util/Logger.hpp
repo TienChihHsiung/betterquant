@@ -82,3 +82,10 @@ std::shared_ptr<spdlog::async_logger> makeLogger(const YAML::Node& config);
 #define LOG_W(...) SPDL_W("", __VA_ARGS__)
 #define LOG_E(...) SPDL_E("", __VA_ARGS__)
 #define LOG_C(...) SPDL_C("", __VA_ARGS__)
+
+#define L_T SPDLOG_LOGGER_TRACE
+#define L_D SPDLOG_LOGGER_DEBUG
+#define L_I SPDLOG_LOGGER_INFO
+#define L_W SPDLOG_LOGGER_WARN
+#define L_E SPDLOG_LOGGER_ERROR
+#define L_C SPDLOG_LOGGER_CRITICAL

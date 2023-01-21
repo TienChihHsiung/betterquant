@@ -171,8 +171,8 @@ void StgInstTaskHandlerOfSpotTest::onStgInstTimer(
       price *= 0.99;
     }
     price = static_cast<int>(price * 10000) / 10000.0;
-    getStgEng()->order(stgInstInfo, 10001, symbolCode, side, PosSide::Both,
-                       price, 30.0);
+    getStgEng()->order(stgInstInfo, 10001, MarketCode::Binance, symbolCode,
+                       side, PosSide::Both, price, 30.0);
     alreadyOrder = true;
   }
 }

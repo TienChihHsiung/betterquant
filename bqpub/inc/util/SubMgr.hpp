@@ -21,6 +21,9 @@ using SubscriberGroup = std::vector<ClientChannel>;
 using TopicHash2SubscriberGroup =
     absl::node_hash_map<TopicHash, SubscriberGroup>;
 
+using Addr2SHMCliGroup = std::map<std::string, SHMCliSPtr>;
+using SHMCliGroup = std::vector<SHMCliSPtr>;
+
 class SubMgr {
  public:
   SubMgr(const SubMgr&) = delete;
@@ -40,7 +43,8 @@ class SubMgr {
   int startSHMCliIfNotExists(const std::string& topic);
 
  public:
-  SubscriberGroup getSubscriberGroupByTopicHash(TopicHash topicHash);
+  SubscriberGroup getSubscriberGroupByTopicHash(TopicHash topicHash) const;
+  Addr2SHMCliGroup getSHMCliGroup() const;
 
  private:
   void initSHMCli(const std::string& addr);
@@ -50,10 +54,10 @@ class SubMgr {
   DataRecvCallback dataRecvCallback_{nullptr};
 
   TopicHash2SubscriberGroup topicHash2SubscriberGroup_;
-  std::ext::spin_mutex mtxTopicHash2SubscriberGroup_;
+  mutable std::ext::spin_mutex mtxTopicHash2SubscriberGroup_;
 
-  std::map<std::string, SHMCliSPtr> addr2SHMCliGroup_;
-  std::ext::spin_mutex mtxAddr2SHMCliGroup_;
+  Addr2SHMCliGroup addr2SHMCliGroup_;
+  mutable std::ext::spin_mutex mtxAddr2SHMCliGroup_;
 };
 
 }  // namespace bq

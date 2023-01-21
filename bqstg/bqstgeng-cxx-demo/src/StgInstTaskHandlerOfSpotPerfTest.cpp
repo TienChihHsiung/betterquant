@@ -146,8 +146,8 @@ void StgInstTaskHandlerOfSpotPerfTest::onStgInstTimer(
     price = static_cast<int>(price * 10000) / 10000.0;
     for (int i = 0; i < 100; ++i) {
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
-      getStgEng()->order(stgInstInfo, 10001, symbolCode, side, PosSide::Both,
-                         price, 30.0);
+      getStgEng()->order(stgInstInfo, 10001, MarketCode::Binance, symbolCode,
+                         side, PosSide::Both, price, 30.0);
     }
     alreadyOrder = true;
   }

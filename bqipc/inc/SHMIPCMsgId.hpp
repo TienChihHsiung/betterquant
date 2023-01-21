@@ -19,9 +19,10 @@ using MsgId = std::uint16_t;
 constexpr static MsgId MSG_ID_ON_PUSH_TOPIC = 10000;
 
 constexpr static MsgId MSG_ID_ON_MD_TRADES = 10001;
-constexpr static MsgId MSG_ID_ON_MD_TICKERS = 10002;
-constexpr static MsgId MSG_ID_ON_MD_CANDLE = 10003;
-constexpr static MsgId MSG_ID_ON_MD_BOOKS = 10004;
+constexpr static MsgId MSG_ID_ON_MD_ORDERS = 10002;
+constexpr static MsgId MSG_ID_ON_MD_TICKERS = 10003;
+constexpr static MsgId MSG_ID_ON_MD_CANDLE = 10004;
+constexpr static MsgId MSG_ID_ON_MD_BOOKS = 10005;
 
 constexpr static MsgId MSG_ID_START_PLAYBACK_HIS_MD = 10021;
 
@@ -62,12 +63,16 @@ constexpr static MsgId MSG_ID_POS_SNAPSHOT_OF_STG_INST_ID = 10206;
 constexpr static MsgId MSG_ID_ASSETS_UPDATE = 10207;
 constexpr static MsgId MSG_ID_ASSETS_SNAPSHOT = 10208;
 
+constexpr static MsgId MSG_ID_SYNC_SUB_INFO = 10301;
+
 inline std::string GetMsgName(MsgId msgId) {
   switch (msgId) {
     case MSG_ID_ON_PUSH_TOPIC:
       return "onPushTopic";
     case MSG_ID_ON_MD_TRADES:
       return "onTrades";
+    case MSG_ID_ON_MD_ORDERS:
+      return "onOrders";
     case MSG_ID_ON_MD_TICKERS:
       return "onMDTickers";
     case MSG_ID_ON_MD_CANDLE:
@@ -142,6 +147,9 @@ inline std::string GetMsgName(MsgId msgId) {
       return "assetsUpdate";
     case MSG_ID_ASSETS_SNAPSHOT:
       return "assetsSnapshot";
+
+    case MSG_ID_SYNC_SUB_INFO:
+      return "syncSubInfo";
 
     default:
       return "N/A";

@@ -3,7 +3,10 @@ symbolType: Perp
 acctId: 10004
 
 simedMode:
-  enable: false
+  feeCurrency: ""
+  feeRatioOfTaker: 0.003
+  feeRatioOfMaker: 0.002
+  milliSecIntervalOfSimOrderStatus: 0
 
 tdSrvChannel: "TD@TDGWChannel@Trade"
 tdSrvTaskDispatcherParam: moduleName=tdSrvTaskDispatcher; taskRandAllocThreadPoolSize=0; taskSpecificThreadPoolSize=2
@@ -38,8 +41,8 @@ milliSecIntervalOfTBLMonitorOfSymbolInfo: 10000
 
 flowCtrlRule:
   - taskGroup:  # each key
-    - {name: order, weight: 1}
-    - {name: cancelOrder, weight: 1}
+    - {name: onOrder, weight: 1}
+    - {name: onCancelOrder, weight: 1}
     timeDur: 10000
     limitNum: 40
   - taskGroup:  # each ip

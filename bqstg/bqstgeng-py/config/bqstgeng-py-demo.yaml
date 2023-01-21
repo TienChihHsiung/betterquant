@@ -4,6 +4,8 @@ stgEngChannelOfWebSrv: "WEBSRV@StgEngChannel@Trade"
 
 stgId: 10000
 
+tdEngParam: host=0.0.0.0; port=0; db=; username=root; password=taosdata; connPoolSize=4
+
 dbEngParam: svcName=dbEng; dbName=BetterQuant; host=0.0.0.0; port=3306; username=root; password=showmethemoney
 dbTaskDispatcherParam: moduleName=dbTaskDispatcher
 

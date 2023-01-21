@@ -10,6 +10,7 @@
 
 #include "TDSrv.hpp"
 #include "config-proj.hpp"
+#include "def/MarketDataIF.hpp"
 #include "util/BQUtil.hpp"
 #include "util/Pch.hpp"
 #include "util/ProgOpt.hpp"

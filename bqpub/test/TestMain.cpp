@@ -19,6 +19,7 @@
 #include "def/SimedTDInfo.hpp"
 #include "def/SymbolInfo.hpp"
 #include "util/PosSnapshotImpl.hpp"
+#include "util/TopicMgr.hpp"
 
 using namespace bq;
 
@@ -342,107 +343,7 @@ TEST(testPosSnapshotImpl, testPosSnapshotImplGroupBy) {
   EXPECT_TRUE((*posInfoGroup)["acctId=2&userId=1"]->size() == 2);
 }
 
-TEST(testPosInfo, testGetSymbolGroupUsedToCalcPnlOfSpot) {
-  auto posInfo = std::make_shared<PosInfo>();
-  posInfo->userId_ = 1;
-  posInfo->acctId_ = 2;
-  posInfo->stgId_ = 3;
-  posInfo->stgInstId_ = 4;
-  posInfo->marketCode_ = MarketCode::Binance;
-  posInfo->symbolType_ = SymbolType::Spot;
-  strncpy(posInfo->symbolCode_, "DOT-ETH", sizeof(posInfo->symbolCode_) - 1);
-  posInfo->side_ = Side::Bid;
-  posInfo->posSide_ = PosSide::Both;
-  posInfo->parValue_ = 100;
-  strncpy(posInfo->feeCurrency_, "BNB", sizeof(posInfo->feeCurrency_) - 1);
-
-  const auto symbolInfoGroup =
-      posInfo->getSymbolGroupUsedToCalcPnl("BTC", "USDT");
-  std::string ret;
-  for (const auto& symbolInfo : symbolInfoGroup) {
-    ret = ret + symbolInfo->toStr() + "\n";
-  }
-  if (!ret.empty()) ret.pop_back();
-  ret = "\n" + ret;
-
-  EXPECT_TRUE(ret == R"(
-Binance Spot BNB-BTC
-Binance Spot BNB-USDT
-Binance Spot BTC-BNB
-Binance Spot BTC-ETH
-Binance Spot BTC-USDT
-Binance Spot ETH-BTC
-Binance Spot ETH-USDT)");
-}
-
-TEST(testPosInfo, testGetSymbolGroupUsedToCalcPnlOfPerp) {
-  auto posInfo = std::make_shared<PosInfo>();
-  posInfo->userId_ = 1;
-  posInfo->acctId_ = 2;
-  posInfo->stgId_ = 3;
-  posInfo->stgInstId_ = 4;
-  posInfo->marketCode_ = MarketCode::Binance;
-  posInfo->symbolType_ = SymbolType::Perp;
-  strncpy(posInfo->symbolCode_, "DOT-USDT-Perp",
-          sizeof(posInfo->symbolCode_) - 1);
-  posInfo->side_ = Side::Bid;
-  posInfo->posSide_ = PosSide::Both;
-  posInfo->parValue_ = 100;
-  strncpy(posInfo->feeCurrency_, "BNB", sizeof(posInfo->feeCurrency_) - 1);
-
-  const auto symbolInfoGroup =
-      posInfo->getSymbolGroupUsedToCalcPnl("BTC", "USDT");
-  std::string ret;
-  for (const auto& symbolInfo : symbolInfoGroup) {
-    ret = ret + symbolInfo->toStr() + "\n";
-  }
-  if (!ret.empty()) ret.pop_back();
-  ret = "\n" + ret;
-
-  EXPECT_TRUE(ret == R"(
-Binance Perp BNB-BTC
-Binance Perp BNB-USDT
-Binance Perp BTC-BNB
-Binance Perp BTC-USD
-Binance Perp BTC-USDT
-Binance Perp USD-BTC
-Binance Perp USD-USDT
-Binance Perp USDT-BTC)");
-}
-
-TEST(testPosInfo, testGetSymbolGroupUsedToCalcPnlOfCPerp) {
-  auto posInfo = std::make_shared<PosInfo>();
-  posInfo->userId_ = 1;
-  posInfo->acctId_ = 2;
-  posInfo->stgId_ = 3;
-  posInfo->stgInstId_ = 4;
-  posInfo->marketCode_ = MarketCode::Binance;
-  posInfo->symbolType_ = SymbolType::CPerp;
-  strncpy(posInfo->symbolCode_, "DOT-USD-CPerp",
-          sizeof(posInfo->symbolCode_) - 1);
-  posInfo->side_ = Side::Bid;
-  posInfo->posSide_ = PosSide::Both;
-  posInfo->parValue_ = 100;
-  strncpy(posInfo->feeCurrency_, "BNB", sizeof(posInfo->feeCurrency_) - 1);
-
-  const auto symbolInfoGroup =
-      posInfo->getSymbolGroupUsedToCalcPnl("BTC", "USDT");
-  std::string ret;
-  for (const auto& symbolInfo : symbolInfoGroup) {
-    ret = ret + symbolInfo->toStr() + "\n";
-  }
-  if (!ret.empty()) ret.pop_back();
-  ret = "\n" + ret;
-
-  EXPECT_TRUE(ret == R"(
-Binance CPerp BNB-BTC
-Binance CPerp BNB-USDT
-Binance CPerp BTC-BNB
-Binance CPerp BTC-DOT
-Binance CPerp BTC-USDT
-Binance CPerp DOT-BTC
-Binance CPerp DOT-USDT)");
-}
+TEST(testTopicMgr, testTopicMgr) {}
 
 int main(int argc, char** argv) {
   testing::AddGlobalTestEnvironment(new global_event);

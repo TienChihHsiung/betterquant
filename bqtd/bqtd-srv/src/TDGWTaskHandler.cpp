@@ -26,7 +26,7 @@
 #include "def/DataStruOfMD.hpp"
 #include "def/DataStruOfOthers.hpp"
 #include "def/DataStruOfTD.hpp"
-#include "def/TaskOfSync.hpp"
+#include "def/SyncTask.hpp"
 #include "util/Datetime.hpp"
 #include "util/StdExt.hpp"
 #include "util/TaskDispatcher.hpp"
@@ -84,6 +84,7 @@ void TDGWTaskHandler::handleMsgIdOnOrderRet(
                                                             LockFunc::False);
 
   if (isTheOrderCanBeUsedCalcPos == IsTheOrderCanBeUsedCalcPos::True) {
+    LOG_I("Begin to calc pos by order info. {}", ordRet->toShortStr());
     const auto posChgInfo =
         std::ext::tls_get<PosMgr>().updateByOrderInfoFromTDGW(ordRet,
                                                               LockFunc::False);
@@ -95,8 +96,8 @@ void TDGWTaskHandler::handleMsgIdOnOrderRet(
         [&](const auto& posInfo) {
           posInfGroup->emplace_back(std::make_shared<PosInfo>(*posInfo));
         });
-    tdSrv_->cacheTaskOfSyncGroup(MSG_ID_SYNC_POS_INFO, posInfGroup,
-                                 SyncToRiskMgr::False, SyncToDB::True);
+    tdSrv_->cacheSyncTaskGroup(MSG_ID_SYNC_POS_INFO, posInfGroup,
+                               SyncToRiskMgr::False, SyncToDB::True);
   }
 }
 
@@ -108,8 +109,10 @@ void TDGWTaskHandler::handleMsgIdOnCancelOrderRet(
   tdSrv_->getSHMSrvOfStgEng()->pushMsgWithZeroCopy(
       [&](void* shmBuf) {
         InitMsgBody(shmBuf, *ordRet);
+#ifndef OPT_LOG
         LOG_I("Forward cancel order ret {}",
               static_cast<OrderInfo*>(shmBuf)->toShortStr());
+#endif
       },
       ordRet->stgId_, MSG_ID_ON_CANCEL_ORDER_RET, sizeof(OrderInfo));
 

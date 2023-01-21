@@ -19,6 +19,9 @@
 #include "WebSrvConst.hpp"
 #include "db/DBE.hpp"
 #include "def/BQDef.hpp"
+#include "tdeng/TDEngConnpool.hpp"
+#include "tdeng/TDEngConst.hpp"
+#include "tdeng/TDEngParam.hpp"
 #include "util/Literal.hpp"
 #include "util/Logger.hpp"
 #include "util/StdExt.hpp"
@@ -49,6 +52,11 @@ int WebSrv::prepareInit() {
 int WebSrv::doInit() {
   if (const auto ret = initDBEng(); ret != 0) {
     LOG_E("Do init failed. ");
+    return ret;
+  }
+
+  if (const auto ret = initTDEng(); ret != 0) {
+    LOG_E("Do init failed.");
     return ret;
   }
 
@@ -134,6 +142,24 @@ int WebSrv::initDBEng() {
   return 0;
 }
 
+int WebSrv::initTDEng() {
+  const auto tdEngParamInStrFmt = SetParam(
+      tdeng::DEFAULT_TDENG_PARAM, CONFIG["tdEngParam"].as<std::string>());
+  const auto [ret, tdEngParam] = tdeng::MakeTDEngParam(tdEngParamInStrFmt);
+  if (ret != 0) {
+    LOG_E("Init failed. {}", tdEngParamInStrFmt);
+    return ret;
+  }
+
+  tdEngConnpool_ = std::make_shared<tdeng::TDEngConnpool>(tdEngParam);
+  if (const auto statusCode = tdEngConnpool_->init(); statusCode != 0) {
+    LOG_E("Init failed. {}", tdEngParamInStrFmt);
+    return -1;
+  }
+
+  return 0;
+}
+
 int WebSrv::doRun() {
   LOG_I("Start web srv.");
   getDBEng()->start();
@@ -157,6 +183,7 @@ void WebSrv::doExit(const boost::system::error_code* ec, int signalNum) {
   LOG_I("End of stop drogon.");
   webSrvTaskDispatcher_->stop();
   shmSrvOfStgEng_->stop();
+  tdEngConnpool_->uninit();
   getDBEng()->stop();
   LOG_I("Stop web srv.");
 }

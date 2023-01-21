@@ -218,4 +218,32 @@ std::string ReplaceSubStrBetween2Str(const std::string& str,
   return ret;
 }
 
+std::string CodeConvert(const char* inBuf, const char* fromCharset,
+                        const char* toCharset) {
+  std::string ret(inBuf);
+  if (strcmp(fromCharset, "gb2312") == 0 && strcmp(toCharset, "utf8") == 0)
+    ret = boost::locale::conv::to_utf<char>(inBuf, std::string("gb2312"));
+  else if (strcmp(fromCharset, "utf8") == 0 && strcmp(toCharset, "gb2312") == 0)
+    ret = boost::locale::conv::from_utf(inBuf, std::string("gb2312"));
+  return ret;
+}
+
+std::string Base64Encode(const std::string& input) {
+  std::string ret;
+  std::size_t len = input.size();
+  ret.resize(boost::beast::detail::base64::encoded_size(len));
+  ret.resize(boost::beast::detail::base64::encode(&ret[0], input.c_str(), len));
+  return ret;
+}
+
+std::string Base64Decode(const std::string& input) {
+  std::string ret;
+  std::size_t len = input.size();
+  ret.resize(boost::beast::detail::base64::decoded_size(len));
+  auto result =
+      boost::beast::detail::base64::decode(&ret[0], input.data(), len);
+  ret.resize(result.first);
+  return ret;
+}
+
 }  // namespace bq

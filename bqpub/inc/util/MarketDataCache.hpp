@@ -40,6 +40,7 @@ class MarketDataCache {
   TradesSPtr getLastTrades(MarketCode marketCode, SymbolType symbolType,
                            const std::string& symbolCode);
 
+ private:
   std::string trades2Str() const;
 
  private:

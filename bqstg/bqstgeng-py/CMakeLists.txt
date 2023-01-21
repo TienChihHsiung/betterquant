@@ -63,6 +63,7 @@ target_include_directories(${PROJECT_NAME}
     PUBLIC "${PROJECT_SOURCE_DIR}/inc"
     PUBLIC "${PROJECT_SOURCE_DIR}/src"
     PUBLIC "${PYTHON_INC_DIR}"
+    PUBLIC "${TAOS_INC_DIR}"
     PUBLIC "${MYSQLCPPCONN_INC_DIR}"
     PUBLIC "${PROJECT_BINARY_DIR}"
     PUBLIC "${ABSEIL_INC_DIR}"
@@ -89,6 +90,7 @@ target_link_directories(${PROJECT_NAME}
     PUBLIC "${MYSQLCPPCONN_LIB_DIR}"
     PUBLIC "${ABSEIL_LIB_DIR}"
     PUBLIC "${ICEORYX_LIB_DIR}"
+    PUBLIC "${TAOS_LIB_DIR}"
     PUBLIC "${YYJSON_LIB_DIR}"
     PUBLIC "${NLOHMANN_JSON_LIB_DIR}"
     PUBLIC "${CPR_LIB_DIR}"
@@ -131,6 +133,7 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC libcurl.a
     PUBLIC mysqlcppconn-static
     PUBLIC libmysqlclient.a
+    PUBLIC libboost_locale.a
     PUBLIC libboost_python38.a
     PUBLIC libboost_date_time.a
     PUBLIC libboost_filesystem.a
@@ -141,6 +144,7 @@ target_link_libraries(${PROJECT_NAME}
     PUBLIC iceoryx_binding_c
     PUBLIC iceoryx_posh_gateway
     PUBLIC iceoryx_posh_roudi
+    PUBLIC taos
     PUBLIC libyyjson.a
     PUBLIC libxxhash.a
     PUBLIC libabsl_raw_hash_set.a

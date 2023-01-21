@@ -37,21 +37,21 @@ struct PosInfo {
 
   std::uint64_t keyHash_;
 
-  ProductId productId_{DEFAULT_PRODUCT_ID};
-  UserId userId_;
-  AcctId acctId_;
-  StgId stgId_;
-  StgInstId stgInstId_;
-  AlgoId algoId_{DEFAULT_ALGO_ID};
+  ProductId productId_{0};
+  UserId userId_{0};
+  AcctId acctId_{0};
+  StgId stgId_{0};
+  StgInstId stgInstId_{0};
+  AlgoId algoId_{0};
 
-  MarketCode marketCode_;
-  SymbolType symbolType_;
+  MarketCode marketCode_{MarketCode::Others};
+  SymbolType symbolType_{SymbolType::Others};
   char symbolCode_[MAX_SYMBOL_CODE_LEN];
 
   Side side_{Side::Others};
   PosSide posSide_{PosSide::Others};
 
-  std::uint32_t parValue_;
+  std::uint32_t parValue_{0};
   char feeCurrency_[MAX_CURRENCY_LEN];
 
   Decimal fee_{0};
@@ -67,10 +67,6 @@ struct PosInfo {
 
   bool isEqual(const PosInfoSPtr& posInfo);
 
-  std::vector<SymbolInfoSPtr> getSymbolGroupUsedToCalcPnl(
-      const std::string& quoteCurrency,
-      const std::string& quoteCurrencyForConv) const;
-
   PnlSPtr calcPnl(const MarketDataCacheSPtr& marketDataCache,
                   const std::string& quoteCurrency,
                   const std::string& quoteCurrencyForConv,
@@ -80,7 +76,7 @@ struct PosInfo {
   std::string getKey() const;
 
   std::string getKeyWithoutFeeCurrency() const;
-  std::string getTopicPrefix() const;
+  std::string getTopicPrefixForSub() const;
 
   bool oneMoreFeeCurrencyThanInput(const PosInfoSPtr& posInfo) const;
 

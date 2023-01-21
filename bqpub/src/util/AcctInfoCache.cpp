@@ -37,13 +37,7 @@ int AcctInfoCache::load() {
     const auto rec = tblRec.second->getRecWithAllFields();
     auto acctInfo = std::make_shared<AcctInfo>();
     acctInfo->acctId_ = rec->acctId;
-    const auto marketCodeValue =
-        magic_enum::enum_cast<MarketCode>(rec->marketCode);
-    if (!marketCodeValue.has_value()) {
-      LOG_W("Invalid market code value {} in tbl acctinfo.", rec->marketCode);
-      return -1;
-    }
-    acctInfo->marketCode_ = marketCodeValue.value();
+    acctInfo->marketCode_ = GetMarketCode(rec->marketCode);
     const auto symbolTypeValue =
         magic_enum::enum_cast<SymbolType>(rec->symbolType);
     if (!symbolTypeValue.has_value()) {

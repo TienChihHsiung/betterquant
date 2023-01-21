@@ -35,6 +35,18 @@ class BOOST_SYMBOL_VISIBLE TDSrvRiskPlugin {
   int init(const std::string& configFilename);
 
  public:
+  void onThreadStart(std::uint32_t threadNo);
+
+ private:
+  virtual void doOnThreadStart(std::uint32_t threadNo);
+
+ public:
+  void onThreadExit(std::uint32_t threadNo);
+
+ private:
+  virtual void doOnThreadExit(std::uint32_t threadNo);
+
+ public:
   int load();
 
  private:
@@ -49,6 +61,7 @@ class BOOST_SYMBOL_VISIBLE TDSrvRiskPlugin {
  public:
   std::string name() const { return name_; }
   bool enable() const { return enable_; }
+  std::shared_ptr<spdlog::async_logger> logger() { return logger_; }
 
  public:
   boost::dll::fs::path location() { return getLocation(); }
@@ -84,9 +97,11 @@ class BOOST_SYMBOL_VISIBLE TDSrvRiskPlugin {
  public:
   std::string getMD5SumOfConf() const { return md5SumOfConf_; }
 
- private:
+ protected:
   TDSrv* tdSrv_;
+  YAML::Node node_;
 
+ private:
   std::string name_;
   bool enable_{false};
 

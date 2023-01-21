@@ -1,6 +1,8 @@
 tdGWChannel: "TD@TDGWChannel@Trade"
 stgEngChannel: "TD@StgEngChannel@Trade"
 
+plugInChannel: "RISK@PlugInChannel@Trade"
+
 timeoutOfReqInCache: 600
 
 dbEngParam: svcName=dbEng; dbName=BetterQuant; host=0.0.0.0; port=3306; username=root; password=showmethemoney
@@ -8,6 +10,10 @@ dbTaskDispatcherParam: moduleName=dbTaskDispatcher
 
 milliSecIntervalOfTBLMonitorOfSymbolInfo: 10000
 milliSecIntervalOfSyncTask: 100
+
+secIntervalOfMonitorOfFlowCtrlRule: 10
+
+monitorSymbolTableChanges: false
 
 tdSrvTaskDispatcherParam: moduleName=TDSrvTaskDispatcherParam;taskRandAssignedThreadPoolSize=0;taskSpecificThreadPoolSize=4;preCreateTaskSpecificThreadPool=1
 

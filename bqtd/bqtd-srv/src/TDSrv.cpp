@@ -13,6 +13,7 @@
 #include "AssetsMgr.hpp"
 #include "ClientChannelGroup.hpp"
 #include "Config.hpp"
+#include "FlowCtrlRuleMgr.hpp"
 #include "OrdMgr.hpp"
 #include "PosMgr.hpp"
 #include "PosMgrRestorer.hpp"
@@ -24,13 +25,15 @@
 #include "TDSrvConst.hpp"
 #include "TDSrvRiskPluginMgr.hpp"
 #include "db/DBEngConst.hpp"
+#include "db/TBLMonitorOfFlowCtrlRule.hpp"
 #include "db/TBLMonitorOfSymbolInfo.hpp"
 #include "def/BQDef.hpp"
+#include "def/ConditionUtil.hpp"
 #include "def/Const.hpp"
 #include "def/DataStruOfAssets.hpp"
 #include "def/DataStruOfOthers.hpp"
 #include "def/PosInfo.hpp"
-#include "def/TaskOfSync.hpp"
+#include "def/SyncTask.hpp"
 #include "util/BQUtil.hpp"
 #include "util/Literal.hpp"
 #include "util/Logger.hpp"
@@ -66,6 +69,17 @@ int TDSrv::doInit() {
     LOG_E("Do init failed. ");
     return ret;
   }
+
+  int statusCode = 0;
+  std::string statusMsg;
+  std::tie(statusCode, statusMsg, conditionFieldGroup_) =
+      MakeConditionFieldGroup(ORDER_INFO_OFFLOAD_GRANULARITY);
+  if (statusCode != 0) {
+    LOG_W("Do init failed. [{}]", statusMsg);
+    return statusCode;
+  }
+
+  initTBLMonitorOfFlowCtrlRule();
 
   tdSrvRiskPluginMgr_ = std::make_shared<TDSrvRiskPluginMgr>(this);
   tdSrvRiskPluginMgr_->load();
@@ -122,12 +136,62 @@ int TDSrv::initDBEng() {
   return 0;
 }
 
+void TDSrv::initTBLMonitorOfFlowCtrlRule() {
+  const auto secIntervalOfMonitorOfFlowCtrlRule =
+      CONFIG["secIntervalOfMonitorOfFlowCtrlRule"].as<std::uint32_t>();
+
+  const auto sql =
+      "SELECT * FROM `flowCtrlRule`"
+      " WHERE `step` = 'InTDSrv' AND `enable` <> 0; ";
+
+  const auto onTBLFlowCtrlRuleChg = [this](const auto& tblRecSetAdd,
+                                           const auto& tblRecSetDel,
+                                           const auto& tblRecSetChg) {
+    for (const auto tblRec : *tblRecSetAdd) {
+      const auto rec = tblRec.second->getRecWithAllFields();
+      LOG_I("{}", "On TBLFlowCtrlRuleAdd");
+    }
+    for (const auto tblRec : *tblRecSetDel) {
+      const auto rec = tblRec.second->getRecWithAllFields();
+      LOG_I("{}", "On TBLFlowCtrlRuleDel");
+    }
+    for (const auto tblRec : *tblRecSetChg) {
+      const auto rec = tblRec.second->getRecWithAllFields();
+      LOG_I("{}", "On TBLFlowCtrlRuleChg");
+    }
+  };
+
+  tblMonitorOfFlowCtrlRule_ = std::make_shared<db::TBLMonitorOfFlowCtrlRule>(
+      getDBEng(), secIntervalOfMonitorOfFlowCtrlRule * 1000, sql,
+      onTBLFlowCtrlRuleChg, db::EnableMonitoring::False);
+  tblMonitorOfFlowCtrlRule_->start();
+}
+
 void TDSrv::initTBLMonitorOfSymbolInfo() {
   const auto milliSecIntervalOfTBLMonitorOfSymbolInfo =
       CONFIG["milliSecIntervalOfTBLMonitorOfSymbolInfo"].as<std::uint32_t>();
+
   const auto sql = fmt::format("SELECT * FROM {};", TBLSymbolInfo::TableName);
+
+  const auto monitorSymbolTableChanges =
+      CONFIG["monitorSymbolTableChanges"].as<bool>(true);
+  const auto enableMonitoring = monitorSymbolTableChanges
+                                    ? db::EnableMonitoring::True
+                                    : db::EnableMonitoring::False;
+
   tblMonitorOfSymbolInfo_ = std::make_shared<db::TBLMonitorOfSymbolInfo>(
-      getDBEng(), milliSecIntervalOfTBLMonitorOfSymbolInfo, sql);
+      getDBEng(), milliSecIntervalOfTBLMonitorOfSymbolInfo, sql, nullptr,
+      enableMonitoring);
+}
+
+void TDSrv::initFlowCtrlRuleMgr() {
+  const auto recFlowCtrlRuleGroup =
+      tblMonitorOfFlowCtrlRule_->getFlowCtrlRuleGroup();
+  const auto [statusCode, statusMsg] =
+      std::ext::tls_get<FlowCtrlRuleMgr>().init(recFlowCtrlRuleGroup);
+  if (statusCode != 0) {
+    LOG_E("Do init failed. {}", statusMsg);
+  }
 }
 
 void TDSrv::initPosMgr() {
@@ -158,15 +222,15 @@ int TDSrv::initTDSrvTaskDispatcher() {
     return ret;
   }
 
-  const auto makeAsyncTask = [](const auto& task) {
-    const auto acctId = GetAcctIdFromTask(task);
-    return std::make_tuple(0, std::make_shared<SHMIPCAsyncTask>(task, acctId));
+  const auto makeAsyncTask = [this](const auto& task) {
+    const auto hash = GetHashFromTask(task, conditionFieldGroup_);
+    return std::make_tuple(0, std::make_shared<SHMIPCAsyncTask>(task, hash));
   };
 
   const auto getThreadForAsyncTask = [](const auto& asyncTask,
                                         auto taskSpecificThreadPoolSize) {
-    const auto acctId = std::any_cast<AcctId>(asyncTask->arg_);
-    const auto threadNo = acctId % taskSpecificThreadPoolSize;
+    const auto hash = std::any_cast<std::uint64_t>(asyncTask->arg_);
+    const auto threadNo = hash % taskSpecificThreadPoolSize;
     return threadNo;
   };
 
@@ -205,35 +269,53 @@ int TDSrv::initTDSrvTaskDispatcher() {
 
   auto onThreadStart = [this](std::uint32_t threadNo) {
     LOG_I("Init thread local data for thread {}.", threadNo);
+    initFlowCtrlRuleMgr();
     initPosMgr();
     initAssetsMgr();
     initOrdMgr();
+    getTDSrvRiskPluginMgr()->onThreadStart(threadNo);
+  };
+
+  auto onThreadExit = [this](std::uint32_t threadNo) {
+    LOG_I("Uninit thread local data for thread {}.", threadNo);
+    getTDSrvRiskPluginMgr()->onThreadExit(threadNo);
   };
 
   tdSrvTaskDispatcher_ = std::make_shared<TaskDispatcher<SHMIPCTaskSPtr>>(
       tdSrvTaskDispatcherParam, makeAsyncTask, getThreadForAsyncTask,
-      handleAsyncTask, onThreadStart);
+      handleAsyncTask, onThreadStart, onThreadExit);
   tdSrvTaskDispatcher_->init();
 
   return ret;
 }
 
 void TDSrv::initSHMSrv() {
-  const auto tdGWChannel =
+  const auto tdGWAddr =
       fmt::format("{}@{}", AppName, CONFIG["tdGWChannel"].as<std::string>());
   shmSrvOfTDGW_ = std::make_shared<SHMSrv>(
-      tdGWChannel, [this](const auto* shmBuf, std::size_t shmBufLen) {
+      tdGWAddr, [this](const auto* shmBuf, std::size_t shmBufLen) {
         auto task = std::make_shared<SHMIPCTask>(shmBuf, shmBufLen);
         tdSrvTaskDispatcher_->dispatch(task);
       });
 
-  const auto stgEngChannel =
+  const auto stgEngAddr =
       fmt::format("{}@{}", AppName, CONFIG["stgEngChannel"].as<std::string>());
   shmSrvOfStgEng_ = std::make_shared<SHMSrv>(
-      stgEngChannel, [this](const auto* shmBuf, std::size_t shmBufLen) {
+      stgEngAddr, [this](const auto* shmBuf, std::size_t shmBufLen) {
         auto task = std::make_shared<SHMIPCTask>(shmBuf, shmBufLen);
         tdSrvTaskDispatcher_->dispatch(task);
       });
+
+  plugInChannel_ = CONFIG["plugInChannel"].as<std::string>();
+  const auto plugInAddr = fmt::format("{}@{}", AppName, plugInChannel_);
+  shmSrvOfPlugIn_ = std::make_shared<SHMSrv>(
+      plugInAddr, [this](const auto* shmBuf, std::size_t shmBufLen) {
+        const auto msgId = static_cast<const SHMHeader*>(shmBuf)->msgId_;
+        LOG_W("Risk ctrl plug in recv msg {} - {}", msgId, GetMsgName(msgId));
+      });
+
+  topicOfTriggerRiskCtrl_ =
+      fmt::format("{}{}TriggerRiskCrtl", plugInChannel_, SEP_OF_TOPIC);
 }
 
 void TDSrv::initScheduleTaskBundle() {
@@ -251,7 +333,7 @@ void TDSrv::initScheduleTaskBundle() {
   getScheduleTaskBundle()->emplace_back(std::make_shared<ScheduleTask>(
       "syncTask",
       [this]() {
-        handleTaskOfSyncGroup();
+        handleSyncTaskGroup();
         return true;
       },
       ExecAtStartup::False, milliSecIntervalOfSyncTask));
@@ -275,6 +357,7 @@ int TDSrv::doRun() {
   tdSrvTaskDispatcher_->start();
   shmSrvOfTDGW_->start();
   shmSrvOfStgEng_->start();
+  shmSrvOfPlugIn_->start();
 
   if (const auto ret = scheduleTaskBundleExecutor_->start(); ret != 0) {
     LOG_E("Start scheduler of multi task failed.");
@@ -284,21 +367,20 @@ int TDSrv::doRun() {
   return 0;
 }
 
-void TDSrv::cacheTaskOfSyncGroup(MsgId msgId, const std::any& task,
-                                 SyncToRiskMgr syncToRiskMgr,
-                                 SyncToDB syncToDB) {
+void TDSrv::cacheSyncTaskGroup(MsgId msgId, const std::any& task,
+                               SyncToRiskMgr syncToRiskMgr, SyncToDB syncToDB) {
   {
-    std::lock_guard<std::ext::spin_mutex> guard(mtxTaskOfSyncGroup_);
-    taskOfSyncGroup_.emplace_back(
-        std::make_shared<TaskOfSync>(msgId, task, syncToRiskMgr, syncToDB));
+    std::lock_guard<std::ext::spin_mutex> guard(mtxSyncTaskGroup_);
+    syncTaskGroup_.emplace_back(
+        std::make_shared<SyncTask>(msgId, task, syncToRiskMgr, syncToDB));
   }
 }
 
-void TDSrv::handleTaskOfSyncGroup() {
-  std::vector<TaskOfSyncSPtr> taskGroup;
+void TDSrv::handleSyncTaskGroup() {
+  std::vector<SyncTaskSPtr> taskGroup;
   {
-    std::lock_guard<std::ext::spin_mutex> guard(mtxTaskOfSyncGroup_);
-    std::swap(taskGroup, taskOfSyncGroup_);
+    std::lock_guard<std::ext::spin_mutex> guard(mtxSyncTaskGroup_);
+    std::swap(taskGroup, syncTaskGroup_);
   }
 
   if (taskGroup.size() > 100) {
@@ -339,6 +421,7 @@ void TDSrv::handleTaskOfSyncGroup() {
 
 void TDSrv::doExit(const boost::system::error_code* ec, int signalNum) {
   scheduleTaskBundleExecutor_->stop();
+  shmSrvOfPlugIn_->stop();
   shmSrvOfStgEng_->stop();
   shmSrvOfTDGW_->stop();
   tdSrvTaskDispatcher_->stop();

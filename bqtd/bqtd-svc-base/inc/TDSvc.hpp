@@ -35,8 +35,10 @@ using AssetsMgrSPtr = std::shared_ptr<AssetsMgr>;
 class OrdMgr;
 using OrdMgrSPtr = std::shared_ptr<OrdMgr>;
 
-struct TaskOfSync;
-using TaskOfSyncSPtr = std::shared_ptr<TaskOfSync>;
+struct SyncTask;
+using SyncTaskSPtr = std::shared_ptr<SyncTask>;
+using SyncTaskGroup = std::vector<SyncTaskSPtr>;
+using SyncTaskGroupSPtr = std::shared_ptr<SyncTaskGroup>;
 
 class FlowCtrlSvc;
 using FlowCtrlSvcSPtr = std::shared_ptr<FlowCtrlSvc>;
@@ -57,6 +59,9 @@ using TaskDispatcherSPtr = std::shared_ptr<TaskDispatcher<Task>>;
 
 enum class SyncToRiskMgr;
 enum class SyncToDB;
+
+class ExceedFlowCtrlHandler;
+using ExceedFlowCtrlHandlerSPtr = std::shared_ptr<ExceedFlowCtrlHandler>;
 }  // namespace bq
 
 namespace bq::db {
@@ -91,9 +96,6 @@ using WSCliOfExchSPtr = std::shared_ptr<WSCliOfExch>;
 
 class TDSrvTaskHandler;
 using TDSrvTaskHandlerSPtr = std::shared_ptr<TDSrvTaskHandler>;
-
-class ExceedFlowCtrlHandler;
-using ExceedFlowCtrlHandlerSPtr = std::shared_ptr<ExceedFlowCtrlHandler>;
 
 class SimedOrderInfoHandler;
 using SimedOrderInfoHandlerSPtr = std::shared_ptr<SimedOrderInfoHandler>;
@@ -151,8 +153,6 @@ class TDSvc : public SvcBase {
 
   AcctId getAcctId() const { return acctId_; }
 
-  bool isSimedMode() const { return simedMode_; }
-
   MarketCode getMarketCodeEnum() const { return marketCodeEnum_; }
   SymbolType getSymbolTypeEnum() const { return symbolTypeEnum_; }
 
@@ -198,9 +198,9 @@ class TDSvc : public SvcBase {
     return exceedFlowCtrlHandler_;
   }
 
-  void cacheTaskOfSyncGroup(MsgId msgId, const std::any& task,
-                            SyncToRiskMgr syncToRiskMgr, SyncToDB syncToDB);
-  void handleTaskOfSyncGroup();
+  void cacheSyncTaskGroup(MsgId msgId, const std::any& task,
+                          SyncToRiskMgr syncToRiskMgr, SyncToDB syncToDB);
+  void handleSyncTaskGroup();
 
   ScheduleTaskBundleSPtr& getScheduleTaskBundle() {
     return scheduleTaskBundle_;
@@ -221,7 +221,6 @@ class TDSvc : public SvcBase {
   std::string marketCode_;
   std::string symbolType_;
   AcctId acctId_;
-  bool simedMode_{false};
 
   MarketCode marketCodeEnum_;
   SymbolType symbolTypeEnum_;
@@ -256,8 +255,8 @@ class TDSvc : public SvcBase {
   FlowCtrlSvcSPtr flowCtrlSvc_{nullptr};
   ExceedFlowCtrlHandlerSPtr exceedFlowCtrlHandler_{nullptr};
 
-  std::vector<TaskOfSyncSPtr> taskOfSyncGroup_;
-  std::ext::spin_mutex mtxTaskOfSyncGroup_;
+  SyncTaskGroupSPtr syncTaskGroup_{nullptr};
+  std::ext::spin_mutex mtxSyncTaskGroup_;
 
   ScheduleTaskBundleSPtr scheduleTaskBundle_{nullptr};
   SchedulerSPtr scheduleTaskBundleExecutor_{nullptr};

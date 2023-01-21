@@ -23,8 +23,8 @@
 #include "def/DataStruOfOthers.hpp"
 #include "def/DataStruOfTD.hpp"
 #include "def/Def.hpp"
+#include "def/SyncTask.hpp"
 #include "def/TDWSCliAsyncTaskArg.hpp"
-#include "def/TaskOfSync.hpp"
 #include "util/Datetime.hpp"
 #include "util/FlowCtrlSvc.hpp"
 #include "util/Literal.hpp"
@@ -135,14 +135,14 @@ void WSCliOfExch::handleAsyncTask(WSCliAsyncTaskSPtr& asyncTask) {
       std::any_cast<WSCliAsyncTaskArgSPtr>(asyncTask->arg_);
 
   switch (asyncTaskArg->wsMsgType_) {
-    case WSMsgType::Order:
+    case MsgType::Order:
       handleOrder(asyncTask);
       break;
 
-    case WSMsgType::SyncUnclosedOrder:
+    case MsgType::SyncUnclosedOrder:
       handleSyncUnclosedOrder(asyncTask);
       break;
-    case WSMsgType::SyncAssetsUpdate:
+    case MsgType::SyncAssetsUpdate:
       handleSyncAssetsUpdate(asyncTask);
       break;
 
@@ -172,8 +172,8 @@ void WSCliOfExch::handleOrder(WSCliAsyncTaskSPtr& asyncTask) {
       },
       MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
 
-  tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
-                               SyncToRiskMgr::True, SyncToDB::True);
+  tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
+                             SyncToRiskMgr::True, SyncToDB::True);
 }
 
 void WSCliOfExch::handleSyncUnclosedOrder(WSCliAsyncTaskSPtr& asyncTask) {
@@ -195,8 +195,8 @@ void WSCliOfExch::handleSyncUnclosedOrder(WSCliAsyncTaskSPtr& asyncTask) {
       },
       MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
 
-  tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
-                               SyncToRiskMgr::True, SyncToDB::True);
+  tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
+                             SyncToRiskMgr::True, SyncToDB::True);
 }
 
 void WSCliOfExch::handleSyncAssetsUpdate(WSCliAsyncTaskSPtr& asyncTask) {
@@ -226,8 +226,8 @@ void WSCliOfExch::handleSyncAssetsUpdate(WSCliAsyncTaskSPtr& asyncTask) {
     NotifyAssetInfo(tdSvc_->getSHMCliOfTDSrv(), tdSvc_->getAcctId(),
                     updateInfoOfAssetGroup);
 
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_SYNC_ASSETS, updateInfoOfAssetGroup,
-                                 SyncToRiskMgr::True, SyncToDB::True);
+    tdSvc_->cacheSyncTaskGroup(MSG_ID_SYNC_ASSETS, updateInfoOfAssetGroup,
+                               SyncToRiskMgr::True, SyncToDB::True);
     updateInfoOfAssetGroup->print();
   }
 }

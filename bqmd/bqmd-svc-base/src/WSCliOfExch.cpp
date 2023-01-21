@@ -85,12 +85,12 @@ int WSCliOfExch::initTaskDispatcher() {
             <WSCliAsyncTaskArgSPtr>(asyncTask->arg_);
 
         switch (arg->wsMsgType_) {
-          case WSMsgType::Books:
+          case MsgType::Books:
             return ThreadNo(1);
 
-          case WSMsgType::Trades:
-          case WSMsgType::Tickers:
-          case WSMsgType::Candle:
+          case MsgType::Trades:
+          case MsgType::Tickers:
+          case MsgType::Candle:
             return ThreadNo(0);
 
           default:
@@ -155,19 +155,19 @@ void WSCliOfExch::handleAsyncTask(WSCliAsyncTaskSPtr& asyncTask) {
   std::string topic = "";
 
   switch (asyncTaskArg->wsMsgType_) {
-    case WSMsgType::Trades:
+    case MsgType::Trades:
       topic = handleMDTrades(asyncTask);
       break;
 
-    case WSMsgType::Tickers:
+    case MsgType::Tickers:
       topic = handleMDTickers(asyncTask);
       break;
 
-    case WSMsgType::Candle:
+    case MsgType::Candle:
       topic = handleMDCandle(asyncTask);
       break;
 
-    case WSMsgType::Books:
+    case MsgType::Books:
       topic = handleMDBooks(asyncTask);
       break;
 

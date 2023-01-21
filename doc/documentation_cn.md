@@ -70,7 +70,7 @@ def on_stg_inst_start(self, stg_inst_info):
     if stg_inst_info.stg_inst_id == 1:
         # sub market data of trades, note that the topic is case sensitive.
         self.stg_eng.sub(
-            stg_inst_info.stg_inst_id, "shm://MD.Binance.Spot/ADA-USDT/Trades"
+            stg_inst_info.stg_inst_id, "shm://MD.SSE.Spot/600600/Trades"
         )   
 ```
 在这一点上 c++ 和 python 没什么区别，子策略编号 stgInstId 必须从1开始，每个策略也必须得有一个 stgInstId 为1的子策略。
@@ -109,7 +109,7 @@ INSERT INTO `BetterQuant`.`stgInfo`(`productId`, `stgId`, `stgName`, `stgDesc`, 
   VALUES(1, 10001, 'TestStg', 'Stg used to test', 1);
   
 INSERT INTO `BetterQuant`.`stgInstInfo`(`stgId`, `stgInstId`, `stgInstParams`, `stgInstName`, `stgInstDesc`, `userId`) 
-  VALUES(10001, 1, '{"symbolCode":"BTC-USDT"}', 'TestStgInst', 'Stg inst used to test.', 1);  
+  VALUES(10001, 1, '{"symbolCode":"600600"}', 'TestStgInst', 'Stg inst used to test.', 1);  
 ```
 &emsp;&emsp;tips:  linux下通过命令行调用sql
 ```shell
@@ -428,10 +428,10 @@ body中传输JSON格式数据。
 <br/>
 
 #### 根据区间查询历史行情  
-* GET /v1/QueryHisMD/between/Binance/Spot/BTC-USDT/Trades  
-* GET /v1/QueryHisMD/between/Binance/Spot/BTC-USDT/Books  
-* GET /v1/QueryHisMD/between/Binance/Spot/BTC-USDT/Candle  
-* GET /v1/QueryHisMD/between/Binance/Spot/BTC-USDT/Tickers  
+* GET /v1/QueryHisMD/between/SSE/Spot/600600/Trades  
+* GET /v1/QueryHisMD/between/SSE/Spot/600600/Books  
+* GET /v1/QueryHisMD/between/SSE/Spot/600600/Candle  
+* GET /v1/QueryHisMD/between/SSE/Spot/600600/Tickers  
 
 | 名称 | 类型 | 描述 |
 | ------ | ------ | ------ |
@@ -444,10 +444,10 @@ body中传输JSON格式数据。
 <br/>
 
 #### 根据时间点往前查num条记录  
-* GET /v1/QueryHisMD/before/Binance/Spot/BTC-USDT/Trades  
-* GET /v1/QueryHisMD/before/Binance/Spot/BTC-USDT/Books  
-* GET /v1/QueryHisMD/before/Binance/Spot/BTC-USDT/Candle  
-* GET /v1/QueryHisMD/before/Binance/Spot/BTC-USDT/Tickers  
+* GET /v1/QueryHisMD/before/SSE/Spot/600600/Trades  
+* GET /v1/QueryHisMD/before/SSE/Spot/600600/Books  
+* GET /v1/QueryHisMD/before/SSE/Spot/600600/Candle  
+* GET /v1/QueryHisMD/before/SSE/Spot/600600/Tickers  
 
 | 名称 | 类型 | 描述 |
 | ------ | ------ | ------ |
@@ -460,10 +460,10 @@ body中传输JSON格式数据。
 <br/>
 
 #### 根据时间点往后查num条记录  
-* GET /v1/QueryHisMD/after/Binance/Spot/BTC-USDT/Trades  
-* GET /v1/QueryHisMD/after/Binance/Spot/BTC-USDT/Books  
-* GET /v1/QueryHisMD/after/Binance/Spot/BTC-USDT/Candle  
-* GET /v1/QueryHisMD/after/Binance/Spot/BTC-USDT/Tickers  
+* GET /v1/QueryHisMD/after/SSE/Spot/600600/Trades  
+* GET /v1/QueryHisMD/after/SSE/Spot/600600/Books  
+* GET /v1/QueryHisMD/after/SSE/Spot/600600/Candle  
+* GET /v1/QueryHisMD/after/SSE/Spot/600600/Tickers  
 
 | 名称 | 类型 | 描述 |
 | ------ | ------ | ------ |
@@ -478,26 +478,7 @@ body中传输JSON格式数据。
 ## 📒 行情服务和配置
 * 🔥 配置  
 
-1. 以币安为例，行情服务的配置在 bqmd-binance/config 下
-
-| 目录 | 说明 | 备注 |
-| ------ | ------ | ------ |
-| bqmd-binance/spot | 现货行情配置 |  |
-| bqmd-binance/futures | U本位交割合约行情配置 |  |
-| bqmd-binance/perp | U本位永续合约行情配置 |  |
-| bqmd-binance/cfutures | 币本位交割合约行情配置 |  |
-| bqmd-binance/cperp | 币本位永续合约行情配置 |  |
-
-注意：以现货为例，行情必须在 bqmd-binance/spot/TopicGroupMustSubInAdvance.yaml 配置，否则即使策略端调用了sub，也收不到行情，这个配置可以在运行期修改，无需重启。
-```yaml
-# 注意大小写敏感
-topicGroup:
-  - BTC-USDT@Trades     # 成交明细
-  - BTC-USDT@Tickers    # tickers
-  - BTC-USDT@Candle     # k线
-  - BTC-USDT@Books@400  # 订单簿（目前只支持400档）
-```
-如果没有这个配置，即使策略订阅了BTC-USDT成交明细，也收不到行情。  
+1. 以xtp为例，行情服务的配置在 bqmd-xtp/config 下
 <br/>
 
 ## 📒 风控插件
@@ -518,16 +499,7 @@ topicGroup:
 ```
 配置文件中可以指定回放速度、回放的topic等信息。配置中的enable设定为true才能启动行情回放。
 <br/>
-
-## 📒 模拟成交
-* 启动命令  
-```bash
-./bqtd-binance --conf=config/bqtd-binance/spot/bqtd-binance.yaml
-```
-和启动交易网关的命令一样，注意配置中的simedMode项下的enable必须设定为true才能进入模拟成交模式。
 <br/>
-<br/>
-
 
 ## 📒 数据库表
 系统本身是全内存交易，数据库只是一个存放一些基本信息和交易流水的地方。

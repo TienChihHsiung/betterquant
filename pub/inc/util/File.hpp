@@ -20,6 +20,11 @@ bool OverwriteStrToFile(const std::string& filename,
 std::string LoadFileContToStr(const std::string& filename);
 int ClearFilecont(const std::string& filename);
 
+std::tuple<int, std::vector<std::string>> LoadFileContToVec(
+    const std::string& filename);
+int SaveDataToFile(const std::string& filename,
+                   const std::vector<std::string>& lineGroup);
+
 std::tuple<int, std::vector<boost::filesystem::path>>
 GetFileGroupFromPathRecursively(const std::string& path);
 

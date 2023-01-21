@@ -56,6 +56,7 @@ message(STATUS "3RDPARTY_DEPENDENCIES ${3RDPARTY_DEPENDENCIES}")
 
 target_include_directories(${PROJECT_NAME}
     PUBLIC "${SOLUTION_ROOT_DIR}/bqtd/bqtd-srv-risk-plugin/inc"
+    PUBLIC "${SOLUTION_ROOT_DIR}/bqriskctrl/inc"
     PUBLIC "${SOLUTION_ROOT_DIR}/bqassetsmgr/inc"
     PUBLIC "${SOLUTION_ROOT_DIR}/bqposmgr/inc"
     PUBLIC "${SOLUTION_ROOT_DIR}/bqordmgr/inc"
@@ -109,6 +110,7 @@ target_link_directories(${PROJECT_NAME}
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_link_libraries(${PROJECT_NAME}
       bqtd-srv-risk-plugin-d
+      bqriskctrl-d
       bqposmgr-d
       bqassetsmgr-d
       bqordmgr-d
@@ -120,6 +122,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 else()
     target_link_libraries(${PROJECT_NAME}
       bqtd-srv-risk-plugin
+      bqriskctrl
       bqposmgr
       bqassetsmgr
       bqordmgr
@@ -146,6 +149,7 @@ target_link_libraries(${PROJECT_NAME}
     libabsl_hash.a
     libabsl_city.a
     libabsl_low_level_hash.a
+    libboost_locale.a
     libboost_date_time.a
     libboost_filesystem.a
     libyyjson.a

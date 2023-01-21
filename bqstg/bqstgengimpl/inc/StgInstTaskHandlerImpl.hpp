@@ -39,11 +39,13 @@ using AssetsSnapshotSPtr = std::shared_ptr<AssetsSnapshot>;
 
 namespace bq {
 struct Trades;
+struct Orders;
 struct Books;
 struct Tickers;
 struct Candle;
 struct OrderInfo;
 using TradesSPtr = std::shared_ptr<Trades>;
+using OrdersSPtr = std::shared_ptr<Orders>;
 using BooksSPtr = std::shared_ptr<Books>;
 using TickersSPtr = std::shared_ptr<Tickers>;
 using CandleSPtr = std::shared_ptr<Candle>;
@@ -74,6 +76,8 @@ struct StgInstTaskHandlerBundle {
       onCancelOrderRet_{nullptr};
 
   std::function<void(const StgInstInfoSPtr&, const TradesSPtr&)> onTrades_{
+      nullptr};
+  std::function<void(const StgInstInfoSPtr&, const OrdersSPtr&)> onOrders_{
       nullptr};
   std::function<void(const StgInstInfoSPtr&, const BooksSPtr&)> onBooks_{
       nullptr};

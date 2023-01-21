@@ -11,6 +11,7 @@
 #include "SHMHeader.hpp"
 
 #include "SHMIPCMsgId.hpp"
+#include "def/Def.hpp"
 #include "util/Datetime.hpp"
 
 namespace bq {
@@ -36,7 +37,7 @@ std::string SHMHeader::toJson() const {
   writer.Uint(clientChannel_);
 
   writer.Key("direction");
-  writer.String(std::string(magic_enum::enum_name(direction_)).data());
+  writer.String(ENUM_TO_STR(direction_).data());
 
   writer.Key("timestamp");
   writer.Uint64(timestamp_);

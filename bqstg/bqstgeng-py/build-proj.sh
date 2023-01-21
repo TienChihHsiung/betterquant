@@ -2,7 +2,7 @@
 set -u
 set -e
 
-readonly PARALLEL_COMPILE_THREAD_NUM=8
+readonly PARALLEL_COMPILE_THREAD_NUM=1
 readonly SOLUTION_ROOT_DIR=/mnt/storage/work/betterquant
 
 readonly PYTHON_INC_DIR=/usr/include/python3.8
@@ -50,14 +50,24 @@ main() {
   black src/stgeng.py
 
   cp src/stgeng.py $SOLUTION_ROOT_DIR/bin/
+
   mkdir -p $SOLUTION_ROOT_DIR/bin/config/bqstgeng-py-demo/
   cp config/bqstgeng-py-demo.yaml \
     $SOLUTION_ROOT_DIR/bin/config/bqstgeng-py-demo/bqstgeng-py-demo.yaml
+
+  mkdir -p $SOLUTION_ROOT_DIR/bin/config/bqstgeng-py-demo-cn/
+  cp config/bqstgeng-py-demo.yaml \
+    $SOLUTION_ROOT_DIR/bin/config/bqstgeng-py-demo-cn/bqstgeng-py-demo-cn.yaml
 
   cp src/stgeng.py $SOLUTION_ROOT_DIR/bqstg/bqstgeng-py-demo/
   mkdir -p $SOLUTION_ROOT_DIR/bqstg/bqstgeng-py-demo/config/
   cp config/bqstgeng-py-demo.yaml \
     $SOLUTION_ROOT_DIR/bqstg/bqstgeng-py-demo/config/
+
+  cp src/stgeng.py $SOLUTION_ROOT_DIR/bqstg/bqstgeng-py-demo-cn/
+  mkdir -p $SOLUTION_ROOT_DIR/bqstg/bqstgeng-py-demo-cn/config/
+  cp config/bqstgeng-py-demo.yaml \
+    $SOLUTION_ROOT_DIR/bqstg/bqstgeng-py-demo-cn/config/bqstgeng-py-demo-cn.yaml
 
   format_src_code inc/
   format_src_code src/
@@ -72,6 +82,8 @@ main() {
      $SOLUTION_ROOT_DIR/bin/$PROJ_NAME.so
   cp $SOLUTION_ROOT_DIR/lib/lib$PROJ_NAME-d.so \
      $SOLUTION_ROOT_DIR/bqstg/bqstgeng-py-demo/$PROJ_NAME.so
+  cp $SOLUTION_ROOT_DIR/lib/lib$PROJ_NAME-d.so \
+     $SOLUTION_ROOT_DIR/bqstg/bqstgeng-py-demo-cn/$PROJ_NAME.so
   make tests
   cd -
 
@@ -82,6 +94,8 @@ main() {
      $SOLUTION_ROOT_DIR/bin/$PROJ_NAME.so
   cp $SOLUTION_ROOT_DIR/lib/lib$PROJ_NAME.so \
      $SOLUTION_ROOT_DIR/bqstg/bqstgeng-py-demo/$PROJ_NAME.so
+  cp $SOLUTION_ROOT_DIR/lib/lib$PROJ_NAME.so \
+     $SOLUTION_ROOT_DIR/bqstg/bqstgeng-py-demo-cn/$PROJ_NAME.so
   make bench
   cd -
 }

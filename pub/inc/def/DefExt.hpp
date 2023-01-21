@@ -15,7 +15,7 @@
 
 namespace bq {
 
-#define API extern "C" BOOST_SYMBOL_EXPORT
+#define BQAPI extern "C" BOOST_SYMBOL_EXPORT
 
 #define CONFIG Config::get_mutable_instance().get()
 #define CONV_OPT(type, val) boost::convert<type>((val))
@@ -54,8 +54,8 @@ namespace bq {
 #define UPPER_ENUM(enum_value) \
   boost::to_upper_copy(std::string(magic_enum::enum_name((enum_value))))
 
-#define ENUM_VALUE_TO_STR(enum_value) \
-  std::string(magic_enum::enum_name((enum_value)))
+#define ENUM_TO_STR(enum_value) std::string(magic_enum::enum_name((enum_value)))
+#define ENUM_TO_CSTR(enum_value) magic_enum::enum_name((enum_value)).data()
 
 using Doc = rapidjson::Document;
 using DocSPtr = std::shared_ptr<Doc>;
@@ -68,14 +68,16 @@ struct JsonData {
     root_ = yyjson_doc_get_root(doc_);
   }
   JsonData(yyjson_doc* doc, yyjson_val* root) : doc_(doc), root_(root) {}
-  yyjson_doc* doc_{nullptr};
-  yyjson_val* root_{nullptr};
+
   ~JsonData() {
     if (doc_) {
       yyjson_doc_free(doc_);
       doc_ = nullptr;
     }
   }
+
+  yyjson_doc* doc_{nullptr};
+  yyjson_val* root_{nullptr};
 };
 using JsonDataSPtr = std::shared_ptr<JsonData>;
 

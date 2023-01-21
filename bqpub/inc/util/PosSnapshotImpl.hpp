@@ -60,9 +60,6 @@ class PosSnapshotImpl {
       const std::string& groupCond);
 
  private:
-  std::string convQueryCond(const std::string& queryCond);
-
- private:
   std::map<std::string, PosInfoSPtr> posInfoDetail_;
   MarketDataCacheSPtr marketDataCache_{nullptr};
 

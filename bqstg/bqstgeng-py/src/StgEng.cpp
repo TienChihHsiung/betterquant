@@ -164,6 +164,27 @@ void StgEng::installStgInstTaskHandler(PyObject* value) {
     }
   };
 
+  stgEngImpl_->getStgInstTaskHandler()
+      ->getStgInstTaskHandlerBundle()
+      .onOrders_ = [this](const StgInstInfoSPtr& stgInstInfo,
+                          const OrdersSPtr& orders) {
+    const auto marketData = orders->toJson();
+    {
+      std::lock_guard<std::mutex> guard(mtxPY_);
+      try {
+        boost::python::call_method<void>(stgInstTaskHandler_, "on_orders",
+                                         stgInstInfo, marketData);
+      } catch (const boost::python::error_already_set& e) {
+        if (PyErr_Occurred()) {
+          const auto msg = handlePYErr();
+          LOG_E("Python interpreter error: \n {}", msg);
+        }
+        boost::python::handle_exception();
+        PyErr_Clear();
+      }
+    }
+  };
+
   stgEngImpl_->getStgInstTaskHandler()->getStgInstTaskHandlerBundle().onBooks_ =
       [this](const StgInstInfoSPtr& stgInstInfo, const BooksSPtr& books) {
         std::uint32_t realDepthLevel{0};
@@ -525,13 +546,14 @@ void StgEng::installStgInstTimer(StgInstId stgInstId,
 }
 
 std::tuple<int, OrderId> StgEng::order(const StgInstInfoSPtr& stgInstInfo,
-                                       AcctId acctId,
+                                       AcctId acctId, MarketCode marketCode,
                                        const std::string& symbolCode, Side side,
                                        PosSide posSide, Decimal orderPrice,
                                        Decimal orderSize, AlgoId algoId,
                                        const SimedTDInfoSPtr& simedTDInfo) {
-  return stgEngImpl_->order(stgInstInfo, acctId, symbolCode, side, posSide,
-                            orderPrice, orderSize, algoId, simedTDInfo);
+  return stgEngImpl_->order(stgInstInfo, acctId, marketCode, symbolCode, side,
+                            posSide, orderPrice, orderSize, algoId,
+                            simedTDInfo);
 }
 
 std::tuple<int, OrderId> StgEng::order(OrderInfoSPtr& orderInfo) {
@@ -551,8 +573,7 @@ int StgEng::sub(StgInstId subscriber, const std::string& topic) {
   std::vector<std::string> fieldGroup;
   boost::algorithm::split(fieldGroup, internalTopic,
                           boost::is_any_of(SEP_OF_TOPIC));
-  if (fieldGroup.size() == 6 &&
-      fieldGroup[4] == std::string(magic_enum::enum_name(MDType::Books)) &&
+  if (fieldGroup.size() == 6 && fieldGroup[4] == ENUM_TO_STR(MDType::Books) &&
       fieldGroup[0] == TOPIC_PREFIX_OF_MARKET_DATA) {
     {
       std::lock_guard<std::mutex> guard(mtxStgInstId2RealDepthLevel_);

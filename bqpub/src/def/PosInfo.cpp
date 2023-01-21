@@ -26,159 +26,6 @@ namespace bq {
 
 PosInfo::PosInfo() {}
 
-std::vector<SymbolInfoSPtr> PosInfo::getSymbolGroupUsedToCalcPnl(
-    const std::string& quoteCurrencyForCalc,
-    const std::string& quoteCurrencyForConv) const {
-  std::set<std::string> symbolGroup;
-  if (symbolType_ == SymbolType::Spot) {
-    const auto [ret, baseCurrency, quoteCurrency] =
-        SplitStrIntoTwoParts(std::string(symbolCode_), SEP_OF_SYMBOL_SPOT);
-
-    if (quoteCurrencyForCalc != quoteCurrency) {
-      symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyForCalc,
-                                      SEP_OF_SYMBOL_SPOT, quoteCurrency));
-      symbolGroup.emplace(fmt::format(
-          "{}{}{}", quoteCurrency, SEP_OF_SYMBOL_SPOT, quoteCurrencyForCalc));
-    }
-
-    if (quoteCurrencyForCalc != quoteCurrencyForConv) {
-      symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyForCalc,
-                                      SEP_OF_SYMBOL_SPOT,
-                                      quoteCurrencyForConv));
-    }
-
-    if (quoteCurrency != quoteCurrencyForConv) {
-      symbolGroup.emplace(fmt::format(
-          "{}{}{}", quoteCurrency, SEP_OF_SYMBOL_SPOT, quoteCurrencyForConv));
-    }
-
-    if (quoteCurrencyForCalc != feeCurrency_) {
-      symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyForCalc,
-                                      SEP_OF_SYMBOL_SPOT, feeCurrency_));
-      symbolGroup.emplace(fmt::format(
-          "{}{}{}", feeCurrency_, SEP_OF_SYMBOL_SPOT, quoteCurrencyForCalc));
-    }
-
-    if (feeCurrency_ != quoteCurrencyForConv) {
-      symbolGroup.emplace(fmt::format(
-          "{}{}{}", feeCurrency_, SEP_OF_SYMBOL_SPOT, quoteCurrencyForConv));
-    }
-
-  } else if (symbolType_ == SymbolType::Perp ||
-             symbolType_ == SymbolType::Futures) {
-    const std::string quoteCurrencyOfUSD = "USD";
-    const std::string quoteCurrencyOfUSDT = "USDT";
-
-    // quoteCurrencyOfUSD
-    {
-      if (quoteCurrencyForCalc != quoteCurrencyOfUSD) {
-        symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyForCalc,
-                                        SEP_OF_SYMBOL_SPOT,
-                                        quoteCurrencyOfUSD));
-        symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyOfUSD,
-                                        SEP_OF_SYMBOL_SPOT,
-                                        quoteCurrencyForCalc));
-      }
-
-      if (quoteCurrencyForCalc != quoteCurrencyForConv) {
-        symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyForCalc,
-                                        SEP_OF_SYMBOL_SPOT,
-                                        quoteCurrencyForConv));
-      }
-
-      if (quoteCurrencyOfUSD != quoteCurrencyForConv) {
-        symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyOfUSD,
-                                        SEP_OF_SYMBOL_SPOT,
-                                        quoteCurrencyForConv));
-      }
-    }
-
-    // quoteCurrencyOfUSDT
-    {
-      if (quoteCurrencyForCalc != quoteCurrencyOfUSDT) {
-        symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyForCalc,
-                                        SEP_OF_SYMBOL_SPOT,
-                                        quoteCurrencyOfUSDT));
-        symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyOfUSDT,
-                                        SEP_OF_SYMBOL_SPOT,
-                                        quoteCurrencyForCalc));
-      }
-
-      if (quoteCurrencyForCalc != quoteCurrencyForConv) {
-        symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyForCalc,
-                                        SEP_OF_SYMBOL_SPOT,
-                                        quoteCurrencyForConv));
-      }
-
-      if (quoteCurrencyOfUSDT != quoteCurrencyForConv) {
-        symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyOfUSDT,
-                                        SEP_OF_SYMBOL_SPOT,
-                                        quoteCurrencyForConv));
-      }
-    }
-
-    if (quoteCurrencyForCalc != feeCurrency_) {
-      symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyForCalc,
-                                      SEP_OF_SYMBOL_SPOT, feeCurrency_));
-      symbolGroup.emplace(fmt::format(
-          "{}{}{}", feeCurrency_, SEP_OF_SYMBOL_SPOT, quoteCurrencyForCalc));
-    }
-
-    if (feeCurrency_ != quoteCurrencyForConv) {
-      symbolGroup.emplace(fmt::format(
-          "{}{}{}", feeCurrency_, SEP_OF_SYMBOL_SPOT, quoteCurrencyForConv));
-    }
-
-  } else if (symbolType_ == SymbolType::CPerp ||
-             symbolType_ == SymbolType::CFutures) {
-    const auto sep = symbolType_ == SymbolType::Perp ? SEP_OF_SYMBOL_PERP
-                                                     : SEP_OF_SYMBOL_FUTURES;
-    const auto baseCurrency =
-        std::string(symbolCode_, strstr(symbolCode_, sep.c_str()));
-    const auto quoteCurrency = baseCurrency;
-
-    if (quoteCurrencyForCalc != quoteCurrency) {
-      symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyForCalc,
-                                      SEP_OF_SYMBOL_SPOT, quoteCurrency));
-      symbolGroup.emplace(fmt::format(
-          "{}{}{}", quoteCurrency, SEP_OF_SYMBOL_SPOT, quoteCurrencyForCalc));
-    }
-
-    if (quoteCurrencyForCalc != quoteCurrencyForConv) {
-      symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyForCalc,
-                                      SEP_OF_SYMBOL_SPOT,
-                                      quoteCurrencyForConv));
-    }
-
-    if (quoteCurrency != quoteCurrencyForConv) {
-      symbolGroup.emplace(fmt::format(
-          "{}{}{}", quoteCurrency, SEP_OF_SYMBOL_SPOT, quoteCurrencyForConv));
-    }
-
-    if (quoteCurrencyForCalc != feeCurrency_) {
-      symbolGroup.emplace(fmt::format("{}{}{}", quoteCurrencyForCalc,
-                                      SEP_OF_SYMBOL_SPOT, feeCurrency_));
-      symbolGroup.emplace(fmt::format(
-          "{}{}{}", feeCurrency_, SEP_OF_SYMBOL_SPOT, quoteCurrencyForCalc));
-    }
-
-    if (feeCurrency_ != quoteCurrencyForConv) {
-      symbolGroup.emplace(fmt::format(
-          "{}{}{}", feeCurrency_, SEP_OF_SYMBOL_SPOT, quoteCurrencyForConv));
-    }
-
-  } else {
-    LOG_W("Unhandled symbolType {}.", magic_enum::enum_name(symbolType_));
-  }
-
-  std::vector<SymbolInfoSPtr> ret;
-  for (const auto& symbolCode : symbolGroup) {
-    ret.emplace_back(
-        std::make_shared<SymbolInfo>(marketCode_, symbolType_, symbolCode));
-  }
-  return ret;
-}
-
 PnlSPtr PosInfo::calcPnl(
     const MarketDataCacheSPtr& marketDataCache,
     const std::string& quoteCurrencyForCalc,
@@ -187,7 +34,16 @@ PnlSPtr PosInfo::calcPnl(
   auto pnl = std::make_shared<Pnl>();
   pnl->quoteCurrencyForCalc_ = quoteCurrencyForCalc;
 
-  if (symbolType_ == SymbolType::Spot) {
+  if (symbolType_ == SymbolType::CN_MainBoard ||
+      symbolType_ == SymbolType::CN_SecondBoard ||
+      symbolType_ == SymbolType::CN_StartupBoard ||
+      symbolType_ == SymbolType::CN_TechBoard) {
+    pnl->pnlUnReal_ = pnlUnReal_;
+    pnl->pnlReal_ = pnlReal_;
+    pnl->updateTime_ = updateTime_;
+    pnl->fee_ = fee_;
+
+  } else if (symbolType_ == SymbolType::Spot) {
     const auto [ret, baseCurrency, quoteCurrency] =
         SplitStrIntoTwoParts(std::string(symbolCode_), SEP_OF_SYMBOL_SPOT);
     {
@@ -336,11 +192,41 @@ std::string PosInfo::getKey() const {
   return ret;
 }
 
-std::string PosInfo::getTopicPrefix() const {
-  const auto ret = fmt::format("{}{}{}{}{}{}{}{}", TOPIC_PREFIX_OF_MARKET_DATA,
-                               SEP_OF_TOPIC, GetMarketName(marketCode_),
-                               SEP_OF_TOPIC, magic_enum::enum_name(symbolType_),
-                               SEP_OF_TOPIC, symbolCode_, SEP_OF_TOPIC);
+std::string PosInfo::getTopicPrefixForSub() const {
+  SymbolType symbolTypeForSub = SymbolType::Others;
+  if (symbolType_ == SymbolType::CN_MainBoard ||                //
+      symbolType_ == SymbolType::CN_SecondBoard ||              //
+      symbolType_ == SymbolType::CN_StartupBoard ||             //
+      symbolType_ == SymbolType::CN_Index ||                    //
+      symbolType_ == SymbolType::CN_TechBoard ||                //
+      symbolType_ == SymbolType::CN_StateBond ||                //
+      symbolType_ == SymbolType::CN_EnterpriseBond ||           //
+      symbolType_ == SymbolType::CN_CompanyBond ||              //
+      symbolType_ == SymbolType::CN_ConvertableBond ||          //
+      symbolType_ == SymbolType::CN_NationalBondReverseRepo ||  //
+      symbolType_ == SymbolType::CN_ETF_SingleMarketStock ||    //
+      symbolType_ == SymbolType::CN_ETF_InterMarketStock ||     //
+      symbolType_ == SymbolType::CN_ETF_CrossBorderStock ||     //
+      symbolType_ == SymbolType::CN_ETF_SingleMarketBond ||     //
+      symbolType_ == SymbolType::CN_ETF_Gold ||                 //
+      symbolType_ == SymbolType::CN_StructuredFundChild ||      //
+      symbolType_ == SymbolType::CN_SZSE_RecreationFund ||      //
+      symbolType_ == SymbolType::CN_StockOption ||              //
+      symbolType_ == SymbolType::CN_ETF_Option ||               //
+      symbolType_ == SymbolType::CN_Allotment ||                //
+      symbolType_ == SymbolType::CN_MoneyMonetaryFundSHCR ||    //
+      symbolType_ == SymbolType::CN_MonetaryFundSHTR ||         //
+      symbolType_ == SymbolType::CN_MonetaryFundSZ) {
+    symbolTypeForSub = SymbolType::Spot;
+  } else {
+    symbolTypeForSub = symbolType_;
+  }
+
+  const auto ret =
+      fmt::format("{}{}{}{}{}{}{}{}", TOPIC_PREFIX_OF_MARKET_DATA, SEP_OF_TOPIC,
+                  GetMarketName(marketCode_), SEP_OF_TOPIC,
+                  magic_enum::enum_name(symbolTypeForSub), SEP_OF_TOPIC,
+                  symbolCode_, SEP_OF_TOPIC);
   return ret;
 }
 
@@ -632,8 +518,7 @@ PosInfoSPtr MakePosInfo(const db::posInfo::RecordSPtr& recPosInfo) {
   posInfo->stgInstId_ = recPosInfo->stgInstId;
   posInfo->algoId_ = recPosInfo->algoId;
 
-  posInfo->marketCode_ =
-      magic_enum::enum_cast<MarketCode>(recPosInfo->marketCode).value();
+  posInfo->marketCode_ = GetMarketCode(recPosInfo->marketCode);
   posInfo->symbolType_ =
       magic_enum::enum_cast<SymbolType>(recPosInfo->symbolType).value();
   strncpy(posInfo->symbolCode_, recPosInfo->symbolCode.c_str(),
@@ -808,7 +693,11 @@ Decimal CalcAvgOpenPrice(const PosInfoSPtr& lhs, const PosInfoSPtr& rhs) {
 
   Decimal avgOpenPrice = 0;
 
-  if (lhs->symbolType_ == SymbolType::Spot ||
+  if (lhs->symbolType_ == SymbolType::CN_MainBoard ||
+      lhs->symbolType_ == SymbolType::CN_SecondBoard ||
+      lhs->symbolType_ == SymbolType::CN_StartupBoard ||
+      lhs->symbolType_ == SymbolType::CN_TechBoard ||
+      lhs->symbolType_ == SymbolType::Spot ||
       lhs->symbolType_ == SymbolType::Perp ||
       lhs->symbolType_ == SymbolType::Futures) {
     const auto totalPos = lhs->pos_ + rhs->pos_;

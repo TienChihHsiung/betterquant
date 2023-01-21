@@ -49,7 +49,7 @@ class SvcBase {
  public:
   int run();
 
- private:
+ protected:
   virtual int beforeRun() { return 0; }
   virtual int doRun() = 0;
   virtual int afterRun();

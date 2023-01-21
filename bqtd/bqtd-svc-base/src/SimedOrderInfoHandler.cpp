@@ -27,7 +27,7 @@
 #include "def/OrderInfoIF.hpp"
 #include "def/SimedTDInfo.hpp"
 #include "def/StatusCode.hpp"
-#include "def/TaskOfSync.hpp"
+#include "def/SyncTask.hpp"
 #include "util/Datetime.hpp"
 #include "util/Fee.hpp"
 #include "util/Float.hpp"
@@ -45,6 +45,7 @@ SimedOrderInfoHandler::SimedOrderInfoHandler(TDSvc* tdSvc) : tdSvc_(tdSvc) {
           0);
 }
 
+#ifdef SIMED_MODE
 void SimedOrderInfoHandler::simOnOrder(OrderInfoSPtr& ordReq) {
   const auto [statusCode, simedTDInfo] = MakeSimedTDInfo(ordReq->simedTDInfo_);
   if (statusCode != 0) {
@@ -63,13 +64,14 @@ void SimedOrderInfoHandler::simOnOrder(OrderInfoSPtr& ordReq) {
         },
         MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
 
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET,
-                                 std::make_shared<OrderInfo>(*ordReq),
-                                 SyncToRiskMgr::True, SyncToDB::True);
+    tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET,
+                               std::make_shared<OrderInfo>(*ordReq),
+                               SyncToRiskMgr::True, SyncToDB::True);
     return;
   }
   simOnOrder(ordReq, simedTDInfo);
 }
+#endif
 
 void SimedOrderInfoHandler::simOnOrder(OrderInfoSPTr& ordReq,
                                        const SimedTDInfoSPtr& simedTDInfo) {
@@ -104,8 +106,7 @@ void SimedOrderInfoHandler::simOnOrder(OrderInfoSPTr& ordReq,
 
 db::symbolInfo::RecordSPtr SimedOrderInfoHandler::simOnOrderConfirmedByExch(
     OrderInfoSPTr& ordReq, const SimedTDInfoSPtr& simedTDInfo) {
-  const auto marketCode =
-      std::string(magic_enum::enum_name(ordReq->marketCode_));
+  const auto marketCode = GetMarketName(ordReq->marketCode_);
   const auto [statusCode, symbolInfo] =
       tdSvc_->getTBLMonitorOfSymbolInfo()->getRecSymbolInfoBySymbolCode(
           marketCode, ordReq->symbolCode_);
@@ -126,9 +127,9 @@ db::symbolInfo::RecordSPtr SimedOrderInfoHandler::simOnOrderConfirmedByExch(
 #endif
         },
         MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET,
-                                 std::make_shared<OrderInfo>(*ordReq),
-                                 SyncToRiskMgr::True, SyncToDB::True);
+    tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET,
+                               std::make_shared<OrderInfo>(*ordReq),
+                               SyncToRiskMgr::True, SyncToDB::True);
     return nullptr;
   }
 
@@ -162,8 +163,8 @@ db::symbolInfo::RecordSPtr SimedOrderInfoHandler::simOnOrderConfirmedByExch(
       },
       MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
 
-  tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
-                               SyncToRiskMgr::True, SyncToDB::True);
+  tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
+                             SyncToRiskMgr::True, SyncToDB::True);
 
   return symbolInfo;
 }
@@ -233,8 +234,8 @@ void SimedOrderInfoHandler::simOnOrderFilled(
         },
         MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
 
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
-                                 SyncToRiskMgr::True, SyncToDB::True);
+    tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
+                               SyncToRiskMgr::True, SyncToDB::True);
   }
 }
 
@@ -299,8 +300,8 @@ void SimedOrderInfoHandler::simOnOrderPartialFilled(
         },
         MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
 
-    tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
-                                 SyncToRiskMgr::True, SyncToDB::True);
+    tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
+                               SyncToRiskMgr::True, SyncToDB::True);
   }
 }
 
@@ -318,8 +319,8 @@ void SimedOrderInfoHandler::simOnOrderFailed(
 #endif
       },
       MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
-  tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, ordReq, SyncToRiskMgr::True,
-                               SyncToDB::True);
+  tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, ordReq, SyncToRiskMgr::True,
+                             SyncToDB::True);
 }
 
 void SimedOrderInfoHandler::simOnCancelOrder(OrderInfoSPtr& ordReq) {
@@ -356,8 +357,8 @@ void SimedOrderInfoHandler::simOnCancelOrder(OrderInfoSPtr& ordReq) {
 #endif
       },
       MSG_ID_ON_ORDER_RET, sizeof(OrderInfo));
-  tdSvc_->cacheTaskOfSyncGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
-                               SyncToRiskMgr::True, SyncToDB::True);
+  tdSvc_->cacheSyncTaskGroup(MSG_ID_ON_ORDER_RET, orderInfoInOrdMgr,
+                             SyncToRiskMgr::True, SyncToDB::True);
 }
 
 }  // namespace bq::td::svc

@@ -53,6 +53,9 @@ void StgEng::installStgInstTaskHandler(
       [&](const auto& stgInstInfo, const auto& trades) {
         taskHandler->onTrades(stgInstInfo, trades);
       },
+      [&](const auto& stgInstInfo, const auto& orders) {
+        taskHandler->onOrders(stgInstInfo, orders);
+      },
       [&](const auto& stgInstInfo, const auto& books) {
         taskHandler->onBooks(stgInstInfo, books);
       },
@@ -114,13 +117,14 @@ void StgEng::installStgInstTaskHandler(
 }
 
 std::tuple<int, OrderId> StgEng::order(const StgInstInfoSPtr& stgInstInfo,
-                                       AcctId acctId,
+                                       AcctId acctId, MarketCode marketCode,
                                        const std::string& symbolCode, Side side,
                                        PosSide posSide, Decimal orderPrice,
                                        Decimal orderSize, AlgoId algoId,
                                        const SimedTDInfoSPtr& simedTDInfo) {
-  return stgEngImpl_->order(stgInstInfo, acctId, symbolCode, side, posSide,
-                            orderPrice, orderSize, algoId, simedTDInfo);
+  return stgEngImpl_->order(stgInstInfo, acctId, marketCode, symbolCode, side,
+                            posSide, orderPrice, orderSize, algoId,
+                            simedTDInfo);
 }
 
 std::tuple<int, OrderId> StgEng::order(OrderInfoSPtr& orderInfo) {

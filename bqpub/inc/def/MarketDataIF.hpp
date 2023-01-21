@@ -16,53 +16,107 @@
 
 namespace bq {
 
-struct MDHeader {
-  std::uint64_t exchTs_;
-  std::uint64_t localTs_;
-  MarketCode marketCode_;
-  SymbolType symbolType_;
-  char symbolCode_[MAX_SYMBOL_CODE_LEN];
-  MDType mdType_;
-  std::string toStr() const;
-  std::string getTopicPrefix() const;
-  std::string toJson() const;
-};
-
 struct Trades {
   SHMHeader shmHeader_;
   MDHeader mdHeader_;
-  std::uint64_t tradeTs_;
-  char tradeId_[MAX_TRADE_ID_LEN];
+
+  std::uint64_t tradeTime_;
+  char tradeNo_[MAX_TRADE_NO_LEN];
+
   Decimal price_;
   Decimal size_;
+
   Side side_;
+
+  char bidOrderId_[MAX_ORDER_ID_LEN];
+  char askOrderId_[MAX_ORDER_ID_LEN];
+
+  char tradingDay_[MAX_TRADING_DAY_LEN];
+
   std::uint16_t extDataLen_{0};
   char extData_[0];
+
   std::string toStr() const;
   std::string toJson() const;
   std::string data() const;
   std::string dataOfUnifiedFmt() const;
+
+  std::string getTDEngSqlPrefix() const;
+  std::string getTDEngSqlTagsPart() const;
+  std::string getTDEngSqlValuesPart() const;
+  std::string getTDEngSqlRawPrefix() const;
+  std::string getTDEngSqlRawTagsPart(const std::string& apiName) const;
+  std::string getTDEngSqlRawValuesPart(void* data, std::size_t dataLen) const;
 };
 using TradesSPtr = std::shared_ptr<Trades>;
 using TradesUPtr = std::unique_ptr<Trades>;
 
-struct Depth {
+struct Orders {
+  SHMHeader shmHeader_;
+  MDHeader mdHeader_;
+
+  std::uint64_t orderTime_;
+  char orderNo_[MAX_ORDER_NO_LEN];
+
   Decimal price_;
   Decimal size_;
-  std::uint32_t orderNum_;
+
+  Side side_;
+
+  char tradingDay_[MAX_TRADING_DAY_LEN];
+
+  std::uint16_t extDataLen_{0};
+  char extData_[0];
+
+  std::string toStr() const;
+  std::string toJson() const;
+  std::string data() const;
+  std::string dataOfUnifiedFmt() const;
+
+  std::string getTDEngSqlPrefix() const;
+  std::string getTDEngSqlTagsPart() const;
+  std::string getTDEngSqlValuesPart() const;
+  std::string getTDEngSqlRawPrefix() const;
+  std::string getTDEngSqlRawTagsPart(const std::string& apiName) const;
+  std::string getTDEngSqlRawValuesPart(void* data, std::size_t dataLen) const;
+};
+using OrdersSPtr = std::shared_ptr<Orders>;
+using OrdersUPtr = std::unique_ptr<Orders>;
+
+struct Depth {
+  Decimal price_{0};
+  Decimal size_{0};
+  std::uint32_t orderNum_{0};
 };
 
 struct Books {
   SHMHeader shmHeader_;
   MDHeader mdHeader_;
+
+  Decimal lastPrice_;
+  Decimal totalVol_;
+  Decimal totalAmt_;
+  std::uint64_t tradesCount_;
+
+  char tradingDay_[MAX_TRADING_DAY_LEN];
+
   Depth asks_[MAX_DEPTH_LEVEL];
   Depth bids_[MAX_DEPTH_LEVEL];
-  std::string toStr() const;
+
   std::uint16_t extDataLen_{0};
   char extData_[0];
+
+  std::string toStr() const;
   std::string toJson(std::uint32_t level = MAX_DEPTH_LEVEL) const;
   std::string data(std::uint32_t level = MAX_DEPTH_LEVEL) const;
   std::string dataOfUnifiedFmt(std::uint32_t level = MAX_DEPTH_LEVEL) const;
+
+  std::string getTDEngSqlPrefix() const;
+  std::string getTDEngSqlTagsPart() const;
+  std::string getTDEngSqlValuesPart() const;
+  std::string getTDEngSqlRawPrefix() const;
+  std::string getTDEngSqlRawTagsPart(const std::string& apiName) const;
+  std::string getTDEngSqlRawValuesPart(void* data, std::size_t dataLen) const;
 };
 using BooksSPtr = std::shared_ptr<Books>;
 using BooksUPtr = std::unique_ptr<Books>;
@@ -70,23 +124,53 @@ using BooksUPtr = std::unique_ptr<Books>;
 struct Tickers {
   SHMHeader shmHeader_;
   MDHeader mdHeader_;
+
+  Decimal open_;
+  Decimal high_;
+  Decimal low_;
+
   Decimal lastPrice_;
   Decimal lastSize_;
+
+  Decimal upperLimitPrice_;
+  Decimal lowerLimitPrice_;
+
+  Decimal preClosePrice_;
+  Decimal preSettlementPrice_;
+
+  Decimal closePrice_;
+  Decimal settlementPrice_;
+
+  Decimal preOpenInterest_;
+  Decimal openInterest_;
+
+  Decimal vol_;
+  Decimal amt_;
+
   Decimal askPrice_;
   Decimal askSize_;
   Decimal bidPrice_;
   Decimal bidSize_;
-  Decimal open24h_;
-  Decimal high24h_;
-  Decimal low24h_;
-  Decimal vol24h_;
-  Decimal amt24h_;
+
+  char tradingDay_[MAX_TRADING_DAY_LEN];
+
+  Depth asks_[MAX_DEPTH_LEVEL_IN_TICKER];
+  Depth bids_[MAX_DEPTH_LEVEL_IN_TICKER];
+
   std::uint16_t extDataLen_{0};
   char extData_[0];
+
   std::string toStr() const;
   std::string toJson() const;
   std::string data() const;
   std::string dataOfUnifiedFmt() const;
+
+  std::string getTDEngSqlPrefix() const;
+  std::string getTDEngSqlTagsPart() const;
+  std::string getTDEngSqlValuesPart() const;
+  std::string getTDEngSqlRawPrefix() const;
+  std::string getTDEngSqlRawTagsPart(const std::string& apiName) const;
+  std::string getTDEngSqlRawValuesPart(void* data, std::size_t dataLen) const;
 };
 using TickersSPtr = std::shared_ptr<Tickers>;
 using TickersUPtr = std::unique_ptr<Tickers>;
@@ -106,6 +190,10 @@ struct Candle {
   std::string toJson() const;
   std::string data() const;
   std::string dataOfUnifiedFmt() const;
+
+  std::string getTDEngSqlPrefix() const;
+  std::string getTDEngSqlTagsPart() const;
+  std::string getTDEngSqlValuesPart() const;
 };
 using CandleSPtr = std::shared_ptr<Candle>;
 using CandleUPtr = std::unique_ptr<Candle>;

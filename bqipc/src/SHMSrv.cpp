@@ -87,12 +87,30 @@ void SHMSrv::pushMsgWithZeroCopy(const FillSHMBufCallback& fillSHMBufCallback,
 }
 
 void SHMSrv::sendRsp(const SHMHeader* reqHeader, void* data, std::size_t len) {
-  beforeSendRsp(reqHeader, data);
+  const auto srcSHMHeader = static_cast<SHMHeader*>(data);
   auto safePublisher = getSafePublisher(reqHeader->clientChannel_);
   {
     std::lock_guard<std::ext::spin_mutex> guard(
         safePublisher->mtxWriteRawDataToSHM_);
-    writeRawDataToSHM(safePublisher->publisher_, data, len);
+    safePublisher->publisher_->loan(len)
+        .and_then([&](auto& userPayload) {
+          memset(userPayload, 0, len);
+          beforeSendRsp(reqHeader, userPayload);
+          auto shmHeader = static_cast<SHMHeader*>(userPayload);
+          shmHeader->topicHash_ = srcSHMHeader->topicHash_;
+          strncpy(shmHeader->topic_, srcSHMHeader->topic_,
+                  sizeof(shmHeader->topic_) - 1);
+          memcpy(static_cast<char*>(userPayload) + sizeof(SHMHeader),
+                 static_cast<char*>(data) + sizeof(SHMHeader),
+                 len - sizeof(SHMHeader));
+          safePublisher->publisher_->publish(userPayload);
+        })
+        .or_else([this](auto& error) {
+          std::ostringstream oss;
+          oss << error;
+          LOG_E("Unable to loan shm. {} [{}{}{}{}{}] [{}]", appName_, service_,
+                SEP_OF_SHM_SVC, instance_, SEP_OF_SHM_SVC, event_, oss.str());
+        });
   }
 }
 
@@ -106,12 +124,30 @@ void SHMSrv::beforeSendRsp(const SHMHeader* reqHeader, void* data) {
 
 void SHMSrv::pushMsg(ClientChannel clientChannel, MsgId msgId, void* data,
                      std::size_t len) {
-  beforePushMsg(clientChannel, msgId, data);
+  const auto srcSHMHeader = static_cast<SHMHeader*>(data);
   auto safePublisher = getSafePublisher(clientChannel);
   {
     std::lock_guard<std::ext::spin_mutex> guard(
         safePublisher->mtxWriteRawDataToSHM_);
-    writeRawDataToSHM(safePublisher->publisher_, data, len);
+    safePublisher->publisher_->loan(len)
+        .and_then([&](auto& userPayload) {
+          memset(userPayload, 0, len);
+          beforePushMsg(clientChannel, msgId, userPayload);
+          auto shmHeader = static_cast<SHMHeader*>(userPayload);
+          shmHeader->topicHash_ = srcSHMHeader->topicHash_;
+          strncpy(shmHeader->topic_, srcSHMHeader->topic_,
+                  sizeof(shmHeader->topic_) - 1);
+          memcpy(static_cast<char*>(userPayload) + sizeof(SHMHeader),
+                 static_cast<char*>(data) + sizeof(SHMHeader),
+                 len - sizeof(SHMHeader));
+          safePublisher->publisher_->publish(userPayload);
+        })
+        .or_else([this](auto& error) {
+          std::ostringstream oss;
+          oss << error;
+          LOG_E("Unable to loan shm. {} [{}{}{}{}{}] [{}]", appName_, service_,
+                SEP_OF_SHM_SVC, instance_, SEP_OF_SHM_SVC, event_, oss.str());
+        });
   }
 }
 
@@ -160,22 +196,6 @@ SafePublisherSPtr SHMSrv::getSafePublisher(ClientChannel clientChannel) {
     }
     return safePublisherGroup_[clientChannel];
   }
-}
-
-void SHMSrv::writeRawDataToSHM(iox::popo::UntypedPublisher* const publisher,
-                               void* data, std::size_t len) {
-  publisher->loan(len)
-      .and_then([&](auto& userPayload) {
-        memset(userPayload, 0, len);
-        memcpy(userPayload, data, len);
-        publisher->publish(userPayload);
-      })
-      .or_else([this](auto& error) {
-        std::ostringstream oss;
-        oss << error;
-        LOG_E("Unable to loan shm. {} [{}{}{}{}{}] [{}]", appName_, service_,
-              SEP_OF_SHM_SVC, instance_, SEP_OF_SHM_SVC, event_, oss.str());
-      });
 }
 
 }  // namespace bq

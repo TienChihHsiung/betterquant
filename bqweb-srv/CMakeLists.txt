@@ -67,6 +67,7 @@ target_include_directories(${PROJECT_NAME}
     PUBLIC "${PROJECT_SOURCE_DIR}/inc"
     PUBLIC "${PROJECT_SOURCE_DIR}/src"
     PUBLIC "${PROJECT_BINARY_DIR}"
+    PUBLIC "${TAOS_INC_DIR}"
     PUBLIC "${ICEORYX_INC_DIR}"
     PUBLIC "${MYSQLCPPCONN_INC_DIR}"
     PUBLIC "${YYJSON_INC_DIR}"
@@ -90,6 +91,7 @@ target_include_directories(${PROJECT_NAME}
 target_link_directories(${PROJECT_NAME}
     PUBLIC "${SOLUTION_ROOT_DIR}/lib/"
     PUBLIC "${ICEORYX_LIB_DIR}"
+    PUBLIC "${TAOS_LIB_DIR}"
     PUBLIC "${MYSQLCPPCONN_LIB_DIR}"
     PUBLIC "${YYJSON_LIB_DIR}"
     PUBLIC "${NLOHMANN_JSON_LIB_DIR}"
@@ -132,6 +134,7 @@ else()
 endif()
 
 target_link_libraries(${PROJECT_NAME}
+    taos
     libcpr.a
     libcurl.a
     drogon
@@ -148,6 +151,7 @@ target_link_libraries(${PROJECT_NAME}
     libabsl_hash.a
     libabsl_city.a
     libabsl_low_level_hash.a
+    libboost_locale.a
     libboost_date_time.a
     libboost_filesystem.a
     libyyjson.a

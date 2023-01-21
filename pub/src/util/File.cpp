@@ -78,6 +78,36 @@ int ClearFilecont(const std::string& filename) {
   return 0;
 }
 
+std::tuple<int, std::vector<std::string>> LoadFileContToVec(
+    const std::string& filename) {
+  std::vector<std::string> ret;
+  std::ifstream in(filename.c_str());
+  if (!in.is_open()) {
+    return {-1, ret};
+  }
+
+  for (std::string line; std::getline(in, line, '\n');) {
+    ret.emplace_back(line);
+  }
+  return {0, ret};
+}
+
+int SaveDataToFile(const std::string& filename,
+                   const std::vector<std::string>& lineGroup) {
+  const auto statusCode = ClearFilecont(filename);
+  if (statusCode != 0) return statusCode;
+
+  std::ofstream out(filename.c_str(), std::ios::app | std::ios::binary);
+  if (out.is_open() == false) {
+    return -1;
+  }
+  for (const auto& line : lineGroup) {
+    out << line << std::endl;
+  }
+  out.close();
+  return 0;
+}
+
 std::tuple<int, std::vector<boost::filesystem::path>>
 GetFileGroupFromPathRecursively(const std::string& path) {
   std::vector<boost::filesystem::path> fileGroup;

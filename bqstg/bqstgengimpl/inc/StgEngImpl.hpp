@@ -54,14 +54,17 @@ using AsyncTaskSPtr = std::shared_ptr<AsyncTask<Task>>;
 class SubMgr;
 using SubMgrSPtr = std::shared_ptr<SubMgr>;
 
+class TopicMgr;
+using TopicMgrSPtr = std::shared_ptr<TopicMgr>;
+
 class OrdMgr;
 using OrdMgrSPtr = std::shared_ptr<OrdMgr>;
 
 class PosMgr;
 using PosMgrSPtr = std::shared_ptr<PosMgr>;
 
-struct TaskOfSync;
-using TaskOfSyncSPtr = std::shared_ptr<TaskOfSync>;
+struct SyncTask;
+using SyncTaskSPtr = std::shared_ptr<SyncTask>;
 
 class Scheduler;
 using SchedulerSPtr = std::shared_ptr<Scheduler>;
@@ -91,6 +94,11 @@ class TBLMonitorOfStgInstInfo;
 using TBLMonitorOfStgInstInfoSPtr = std::shared_ptr<TBLMonitorOfStgInstInfo>;
 }  // namespace bq::db
 
+namespace bq::tdeng {
+class TDEngConnpool;
+using TDEngConnpoolSPtr = std::shared_ptr<TDEngConnpool>;
+}  // namespace bq::tdeng
+
 namespace bq::stg {
 
 class StgInstTaskHandlerImpl;
@@ -114,9 +122,11 @@ class StgEngImpl : public SvcBase {
 
  private:
   int initDBEng();
+  int initTDEng();
   void initTBLMonitorOfSymbolInfo();
   void initTBLMonitorOfStgInstInfo();
   void initSubMgr();
+  void initTopicMgr();
   void initSHMCliOfTDSrv();
   void initSHMCliOfRiskMgr();
   void initSHMCliOfWebSrv();
@@ -147,10 +157,10 @@ class StgEngImpl : public SvcBase {
 
  public:
   std::tuple<int, OrderId> order(const StgInstInfoSPtr& stgInstInfo,
-                                 AcctId acctId, const std::string& symbolCode,
-                                 Side side, PosSide posSide, Decimal orderPrice,
-                                 Decimal orderSize,
-                                 AlgoId algoId = DEFAULT_ALGO_ID,
+                                 AcctId acctId, MarketCode marketCode,
+                                 const std::string& symbolCode, Side side,
+                                 PosSide posSide, Decimal orderPrice,
+                                 Decimal orderSize, AlgoId algoId = 0,
                                  const SimedTDInfoSPtr& simedTDInfo = nullptr);
 
   std::tuple<int, OrderId> order(OrderInfoSPtr& orderInfo);
@@ -207,6 +217,7 @@ class StgEngImpl : public SvcBase {
   std::string getAppName() const { return appName_; }
 
   db::DBEngSPtr getDBEng() const { return dbEng_; }
+  tdeng::TDEngConnpoolSPtr getTDEngConnpool() const { return tdEngConnpool_; }
 
   db::TBLMonitorOfSymbolInfoSPtr getTBLMonitorOfSymbolInfo() const {
     return tblMonitorOfSymbolInfo_;
@@ -230,9 +241,9 @@ class StgEngImpl : public SvcBase {
     return barrierOfStgStartSignal_;
   }
 
-  void cacheTaskOfSyncGroup(MsgId msgId, const std::any& task,
-                            SyncToRiskMgr syncToRiskMgr, SyncToDB syncToDB);
-  void handleTaskOfSyncGroup();
+  void cacheSyncTaskGroup(MsgId msgId, const std::any& task,
+                          SyncToRiskMgr syncToRiskMgr, SyncToDB syncToDB);
+  void handleSyncTaskGroup();
 
   ScheduleTaskBundleSPtr getScheduleTaskBundle();
 
@@ -245,6 +256,7 @@ class StgEngImpl : public SvcBase {
   std::string rootDirOfStgPrivateData_;
 
   db::DBEngSPtr dbEng_{nullptr};
+  tdeng::TDEngConnpoolSPtr tdEngConnpool_{nullptr};
 
   db::TBLMonitorOfSymbolInfoSPtr tblMonitorOfSymbolInfo_{nullptr};
   db::TBLMonitorOfStgInstInfoSPtr tblMonitorOfStgInstInfo_{nullptr};
@@ -255,6 +267,7 @@ class StgEngImpl : public SvcBase {
   OrdMgrSPtr ordMgr_{nullptr};
   PosMgrSPtr posMgr_{nullptr};
   SubMgrSPtr subMgr_{nullptr};
+  TopicMgrSPtr topicMgr_{nullptr};
 
   SHMCliSPtr shmCliOfTDSrv_{nullptr};
   SHMCliSPtr shmCliOfRiskMgr_{nullptr};
@@ -265,8 +278,8 @@ class StgEngImpl : public SvcBase {
 
   std::shared_ptr<std::promise<void>> barrierOfStgStartSignal_{nullptr};
 
-  std::vector<TaskOfSyncSPtr> taskOfSyncGroup_;
-  std::ext::spin_mutex mtxTaskOfSyncGroup_;
+  std::vector<SyncTaskSPtr> syncTaskGroup_;
+  std::ext::spin_mutex mtxSyncTaskGroup_;
 
   ScheduleTaskBundleSPtr scheduleTaskBundle_{nullptr};
   std::ext::spin_mutex mtxScheduleTaskBundle_;

@@ -259,7 +259,7 @@ void RiskMgr::initScheduleTaskBundle() {
       [this]() {
         const auto posInfoGroup = getPosMgr()->getPosInfoGroup(LockFunc::True);
         for (const auto& posInfo : posInfoGroup) {
-          const auto topicPrefix = posInfo->getTopicPrefix();
+          const auto topicPrefix = posInfo->getTopicPrefixForSub();
           const auto topic = fmt::format("{}{}", topicPrefix,
                                          magic_enum::enum_name(MDType::Trades));
           getSubMgr()->sub(PUB_CHANNEL, topic);

@@ -21,16 +21,26 @@ namespace bq::td::srv {
 TDSrvRiskPluginMgr::TDSrvRiskPluginMgr(TDSrv* tdSrv) : tdSrv_(tdSrv) {}
 
 int TDSrvRiskPluginMgr::load() {
+  const auto [statusCode, no2LibPath] = initNo2LibPath();
+  if (statusCode != 0) {
+    return statusCode;
+  }
+  initPlugIn(no2LibPath);
+  return 0;
+}
+
+std::tuple<int, No2LibPath> TDSrvRiskPluginMgr::initNo2LibPath() {
+  No2LibPath no2LibPath;
+
   const auto tdSrvRiskPluginPath =
       CONFIG["tdSrvRiskPluginPath"].as<std::string>();
-  const auto [ret, fileGroup] =
+  const auto [statusCode, fileGroup] =
       GetFileGroupFromPathRecursively(tdSrvRiskPluginPath);
-  if (ret != 0) {
+  if (statusCode != 0) {
     LOG_W("Load trSrv risk plugin from {} failed.", tdSrvRiskPluginPath);
-    return ret;
+    return {statusCode, no2LibPath};
   }
 
-  std::map<std::size_t, boost::dll::fs::path> no2libPath;
   for (const auto& file : fileGroup) {
     if (file.extension().string() != ".so") continue;
 
@@ -80,12 +90,16 @@ int TDSrvRiskPluginMgr::load() {
       continue;
     }
 
-    no2libPath.emplace(no, libPath);
+    no2LibPath.emplace(no, libPath);
   }
 
+  return {0, no2LibPath};
+}
+
+void TDSrvRiskPluginMgr::initPlugIn(const No2LibPath& no2LibPath) {
   for (std::size_t no = 0; no < MAX_TD_SRV_RISK_PLUGIN_NUM; ++no) {
-    const auto iter = no2libPath.find(no);
-    if (iter == std::end(no2libPath)) {
+    const auto iter = no2LibPath.find(no);
+    if (iter == std::end(no2LibPath)) {
       const auto oldPlugin = safeTDSrvRiskPluginGroup_[no].get();
       if (oldPlugin != nullptr) {
         oldPlugin->unload();
@@ -104,7 +118,6 @@ int TDSrvRiskPluginMgr::load() {
         if (newPlugin->getMD5SumOfConf() != oldPlugin->getMD5SumOfConf()) {
           if (newPlugin->enable()) {
             if (oldPlugin->enable()) {
-              // newPlugin and oldPlugin are all enable
               oldPlugin->unload();
               const auto ret = newPlugin->load();
               if (ret == 0) {
@@ -161,8 +174,6 @@ int TDSrvRiskPluginMgr::load() {
       }
     }
   }
-
-  return 0;
 }
 
 TDSrvRiskPluginSPtr TDSrvRiskPluginMgr::createPlugin(
@@ -176,6 +187,22 @@ TDSrvRiskPluginSPtr TDSrvRiskPluginMgr::createPlugin(
     return nullptr;
   }
   return plugin;
+}
+
+void TDSrvRiskPluginMgr::onThreadStart(std::uint32_t threadNo) {
+  for (const auto& safePlugin : safeTDSrvRiskPluginGroup_) {
+    auto plugin = safePlugin.get();
+    if (!plugin) continue;
+    plugin->onThreadStart(threadNo);
+  }
+}
+
+void TDSrvRiskPluginMgr::onThreadExit(std::uint32_t threadNo) {
+  for (const auto& safePlugin : safeTDSrvRiskPluginGroup_) {
+    auto plugin = safePlugin.get();
+    if (!plugin) continue;
+    plugin->onThreadExit(threadNo);
+  }
 }
 
 int TDSrvRiskPluginMgr::onOrder(const OrderInfoSPtr& order) {

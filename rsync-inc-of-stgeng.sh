@@ -1,3 +1,4 @@
+rsync -avzPcR ./bqpub/inc/def/Topic.hpp inc/cxx/
 rsync -avzPcR ./bqpub/inc/def/AssetInfoIF.hpp inc/cxx/
 rsync -avzPcR ./bqpub/inc/def/BQConstIF.hpp inc/cxx/
 rsync -avzPcR ./bqpub/inc/def/BQDefIF.hpp inc/cxx/

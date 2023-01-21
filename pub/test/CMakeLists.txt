@@ -62,6 +62,8 @@ else()
 endif()
 
 target_link_libraries(${TEST_PROJECT_NAME}
+    libboost_filesystem.a
+    libboost_locale.a
     libyyjson.a
     libfmt.a
     libgtest.a

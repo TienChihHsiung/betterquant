@@ -11,7 +11,6 @@
 #include "TDSrvRiskPluginFlowCtrl.hpp"
 
 #include "AssetsMgr.hpp"
-#include "ConfigOfPlugin.hpp"
 #include "OrdMgr.hpp"
 #include "PosMgr.hpp"
 #include "TDSrv.hpp"
@@ -34,11 +33,11 @@ boost::dll::fs::path TDSrvRiskPluginFlowCtrl::getLocation() const {
 
 TDSrvRiskPluginFlowCtrl::TDSrvRiskPluginFlowCtrl(TDSrv* tdSrv)
     : TDSrvRiskPlugin(tdSrv) {
-  flowCtrlSvc_ = std::make_shared<FlowCtrlSvc>(CONFIG_OF_PLUGIN);
+  flowCtrlSvc_ = std::make_shared<FlowCtrlSvc>(node_);
 }
 
 int TDSrvRiskPluginFlowCtrl::doOnOrder(const OrderInfoSPtr& order) {
-  L_I("[{}] On order req.", name());
+  L_I(logger(), "[{}] On order req.", name());
   const auto taskName = fmt::format("{}-{}", order->acctId_,
                                     GetMsgName(order->shmHeader_.msgId_));
   if (flowCtrlSvc_->exceedFlowCtrl(taskName)) {
@@ -48,16 +47,16 @@ int TDSrvRiskPluginFlowCtrl::doOnOrder(const OrderInfoSPtr& order) {
 }
 
 int TDSrvRiskPluginFlowCtrl::doOnCancelOrder(const OrderInfoSPtr& order) {
-  L_I("[{}] On cancel order req.", name());
+  L_I(logger(), "[{}] On cancel order req.", name());
   return 0;
 }
 
 int TDSrvRiskPluginFlowCtrl::doOnOrderRet(const OrderInfoSPtr& order) {
-  L_I("[{}] On order ret.", name());
+  L_I(logger(), "[{}] On order ret.", name());
   return 0;
 }
 int TDSrvRiskPluginFlowCtrl::doOnCancelOrderRet(const OrderInfoSPtr& order) {
-  L_I("[{}] On cancel order ret.", name());
+  L_I(logger(), "[{}] On cancel order ret.", name());
   return 0;
 }
 

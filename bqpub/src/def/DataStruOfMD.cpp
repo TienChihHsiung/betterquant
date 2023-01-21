@@ -51,13 +51,13 @@ std::string MDHeader::toJson() const {
   writer.String(GetMarketName(marketCode_).data());
 
   writer.Key("symbolType");
-  writer.String(std::string(magic_enum::enum_name(symbolType_)).data());
+  writer.String(ENUM_TO_STR(symbolType_).data());
 
   writer.Key("symbolCode");
   writer.String(symbolCode_);
 
   writer.Key("mdType");
-  writer.String(std::string(magic_enum::enum_name(mdType_)).data());
+  writer.String(ENUM_TO_STR(mdType_).data());
 
   writer.EndObject();
 
@@ -67,10 +67,11 @@ std::string MDHeader::toJson() const {
 
 std::string Trades::toStr() const {
   const auto ret = fmt::format(
-      "{} {} tradeTs: {}; tradeId: {}; "
-      "price: {}; size: {}; side: {}; extDataLen: {}",
-      shmHeader_.toStr(), mdHeader_.toStr(), tradeTs_, tradeId_, price_, size_,
-      magic_enum::enum_name(side_), extDataLen_);
+      "{} {} tradeTime: {}; tradeNo: {}; price: {}; size: {}; side: {}; "
+      "bidOrderId: {}; askOrderId: {}; tradingDay : {}; extDataLen: {}",
+      shmHeader_.toStr(), mdHeader_.toStr(), tradeTime_, tradeNo_, price_,
+      size_, magic_enum::enum_name(side_), bidOrderId_, askOrderId_,
+      tradingDay_, extDataLen_);
   return ret;
 }
 
@@ -84,16 +85,22 @@ std::string Trades::data() const {
   rapidjson::Writer<rapidjson::StringBuffer> writer(strBuf);
 
   writer.StartObject();
-  writer.Key("tradeTs");
-  writer.Uint64(tradeTs_);
-  writer.Key("tradeId");
-  writer.String(tradeId_);
+  writer.Key("tradeTime");
+  writer.Uint64(tradeTime_);
+  writer.Key("tradeNo");
+  writer.String(tradeNo_);
   writer.Key("price");
   writer.Double(price_);
   writer.Key("size");
   writer.Double(size_);
   writer.Key("side");
-  writer.String(std::string(magic_enum::enum_name(side_)).data());
+  writer.String(ENUM_TO_STR(side_).data());
+  writer.Key("bidOrderId");
+  writer.String(bidOrderId_);
+  writer.Key("askOrderId");
+  writer.String(askOrderId_);
+  writer.Key("tradingDay");
+  writer.String(tradingDay_);
   writer.EndObject();
 
   return strBuf.GetString();
@@ -105,10 +112,233 @@ std::string Trades::dataOfUnifiedFmt() const {
   return ret;
 }
 
-std::string Books::toStr() const {
+std::string Trades::getTDEngSqlPrefix() const {
+  const auto tableName = fmt::format(
+      "{}{}{}{}{}{}{}", magic_enum::enum_name(mdHeader_.mdType_),
+      SEP_OF_TDENG_TABLE_NAME, magic_enum::enum_name(mdHeader_.symbolType_),
+      SEP_OF_TDENG_TABLE_NAME, GetMarketName(mdHeader_.marketCode_),
+      SEP_OF_TDENG_TABLE_NAME, mdHeader_.symbolCode_);
+  const auto stableName = magic_enum::enum_name(mdHeader_.mdType_);
+  // clang-off
+  const auto ret = fmt::format("{}.{} USING {}.{} ",
+                               TBENG_DBNAME_OF_MD,  // dbname
+                               tableName,           // tableName
+                               TBENG_DBNAME_OF_MD,  // dbname
+                               stableName           // stableName
+  );
+  // clang-on
+  return ret;
+}
+
+std::string Trades::getTDEngSqlTagsPart() const {
+  // clang-format off
+  const auto ret = fmt::format("TAGS({}, {}, '{}') ", 
+    magic_enum::enum_integer(mdHeader_.symbolType_),   // symbolType
+    static_cast<std::uint16_t>(mdHeader_.marketCode_), // marketCode
+    mdHeader_.symbolCode_                              // symbolCode
+  );
+  // clang-format on
+  return ret;
+}
+
+std::string Trades::getTDEngSqlRawTagsPart(const std::string& apiName) const {
+  // clang-format off
+  const auto ret = fmt::format("TAGS('{}', {}, {}, '{}') ", 
+    apiName,
+    magic_enum::enum_integer(mdHeader_.symbolType_),   // symbolType
+    static_cast<std::uint16_t>(mdHeader_.marketCode_), // marketCode
+    mdHeader_.symbolCode_                              // symbolCode
+  );
+  // clang-format on
+  return ret;
+}
+
+std::string Trades::getTDEngSqlValuesPart() const {
+  // clang-format off
+  const auto ret = fmt::format("VALUES({}, {}, {}, '{}', {}, {}, {}, '{}', '{}', '{}') ", 
+    mdHeader_.exchTs_,               // exchTs_
+    mdHeader_.localTs_,              // localTs_
+    tradeTime_,                      // tradeTime_
+    tradeNo_,                        // tradeNo_
+    price_,                          // price_ 
+    size_,                           // size_ 
+    magic_enum::enum_integer(side_), // side_ 
+    bidOrderId_,                     // bidOrderId
+    askOrderId_,                     // askOrderId
+    tradingDay_                      // tradingDay
+  );
+  // clang-format on
+  return ret;
+}
+
+std::string Trades::getTDEngSqlRawPrefix() const {
+  const auto tableName = fmt::format(
+      "{}{}{}{}{}{}{}{}{}", magic_enum::enum_name(mdHeader_.mdType_),
+      SEP_OF_TDENG_TABLE_NAME, magic_enum::enum_name(mdHeader_.symbolType_),
+      SEP_OF_TDENG_TABLE_NAME, GetMarketName(mdHeader_.marketCode_),
+      SEP_OF_TDENG_TABLE_NAME, mdHeader_.symbolCode_, SEP_OF_TDENG_TABLE_NAME,
+      TBENG_ORIG_DATA_TABLE_NAME_SUFFIX);
+  // clang-off
+  const auto ret = fmt::format("{}.{} USING {}.{} ",
+                               TBENG_DBNAME_OF_MD,          // dbname
+                               tableName,                   // tableName
+                               TBENG_DBNAME_OF_MD,          // dbname
+                               TBENG_TABLE_NAME_OF_ORIG_MD  // stableName
+  );
+  // clang-on
+  return ret;
+}
+
+std::string Trades::getTDEngSqlRawValuesPart(void* data,
+                                             std::size_t dataLen) const {
+  std::string str(static_cast<const char*>(data), dataLen);
+  // clang-format off
+  const auto ret = fmt::format("VALUES({}, '{}', '{}') ", 
+    mdHeader_.localTs_,              // localTs_
+    tradingDay_,                     // tradingDay
+    Base64Encode(str)
+  );
+  // clang-format on
+  return ret;
+}
+
+std::string Orders::toStr() const {
+  const auto ret = fmt::format(
+      "{} {} orderTime: {}; orderNo: {}; price: {}; size: {}; side: {}; "
+      "tradingDay : {}; extDataLen: {}",
+      shmHeader_.toStr(), mdHeader_.toStr(), orderTime_, orderNo_, price_,
+      size_, magic_enum::enum_name(side_), tradingDay_, extDataLen_);
+  return ret;
+}
+
+std::string Orders::toJson() const {
+  const auto ret = MakeMarketData(shmHeader_, mdHeader_, data());
+  return ret;
+}
+
+std::string Orders::data() const {
+  rapidjson::StringBuffer strBuf;
+  rapidjson::Writer<rapidjson::StringBuffer> writer(strBuf);
+
+  writer.StartObject();
+  writer.Key("orderTime");
+  writer.Uint64(orderTime_);
+  writer.Key("orderNo");
+  writer.String(orderNo_);
+  writer.Key("price");
+  writer.Double(price_);
+  writer.Key("size");
+  writer.Double(size_);
+  writer.Key("side");
+  writer.String(ENUM_TO_STR(side_).data());
+  writer.Key("tradingDay");
+  writer.String(tradingDay_);
+  writer.EndObject();
+
+  return strBuf.GetString();
+}
+
+std::string Orders::dataOfUnifiedFmt() const {
   const auto ret =
-      fmt::format("{} {} asks bids extDataLen: {}", shmHeader_.toStr(),
-                  mdHeader_.toStr(), extDataLen_);
+      fmt::format(R"({{"mdHeader":{},"data":{}}})", mdHeader_.toJson(), data());
+  return ret;
+}
+
+std::string Orders::getTDEngSqlPrefix() const {
+  const auto tableName = fmt::format(
+      "{}{}{}{}{}{}{}", magic_enum::enum_name(mdHeader_.mdType_),
+      SEP_OF_TDENG_TABLE_NAME, magic_enum::enum_name(mdHeader_.symbolType_),
+      SEP_OF_TDENG_TABLE_NAME, GetMarketName(mdHeader_.marketCode_),
+      SEP_OF_TDENG_TABLE_NAME, mdHeader_.symbolCode_);
+  const auto stableName = magic_enum::enum_name(mdHeader_.mdType_);
+  // clang-off
+  const auto ret = fmt::format("{}.{} USING {}.{} ",
+                               TBENG_DBNAME_OF_MD,  // dbname
+                               tableName,           // tableName
+                               TBENG_DBNAME_OF_MD,  // dbname
+                               stableName           // stableName
+  );
+  // clang-on
+  return ret;
+}
+
+std::string Orders::getTDEngSqlTagsPart() const {
+  // clang-format off
+  const auto ret = fmt::format("TAGS({}, {}, '{}') ", 
+    magic_enum::enum_integer(mdHeader_.symbolType_), // symbolType
+    static_cast<std::uint16_t>(mdHeader_.marketCode_), // marketCode
+    mdHeader_.symbolCode_                            // symbolCode
+  );
+  // clang-format on
+  return ret;
+}
+
+std::string Orders::getTDEngSqlRawTagsPart(const std::string& apiName) const {
+  // clang-format off
+  const auto ret = fmt::format("TAGS('{}', {}, {}, '{}') ", 
+    apiName,
+    magic_enum::enum_integer(mdHeader_.symbolType_),   // symbolType
+    static_cast<std::uint16_t>(mdHeader_.marketCode_), // marketCode
+    mdHeader_.symbolCode_                              // symbolCode
+  );
+  // clang-format on
+  return ret;
+}
+
+std::string Orders::getTDEngSqlValuesPart() const {
+  // clang-format off
+  const auto ret = fmt::format("VALUES({}, {}, {}, '{}', {}, {}, {}, '{}') ", 
+    mdHeader_.exchTs_,               // exchTs_
+    mdHeader_.localTs_,              // localTs_
+    orderTime_,                      // tradeTime_
+    orderNo_,                        // tradeNo_
+    price_,                          // price_ 
+    size_,                           // size_ 
+    magic_enum::enum_integer(side_), // side_ 
+    tradingDay_                      // tradingDay
+  );
+  // clang-format on
+  return ret;
+}
+
+std::string Orders::getTDEngSqlRawPrefix() const {
+  const auto tableName = fmt::format(
+      "{}{}{}{}{}{}{}{}{}", magic_enum::enum_name(mdHeader_.mdType_),
+      SEP_OF_TDENG_TABLE_NAME, magic_enum::enum_name(mdHeader_.symbolType_),
+      SEP_OF_TDENG_TABLE_NAME, GetMarketName(mdHeader_.marketCode_),
+      SEP_OF_TDENG_TABLE_NAME, mdHeader_.symbolCode_, SEP_OF_TDENG_TABLE_NAME,
+      TBENG_ORIG_DATA_TABLE_NAME_SUFFIX);
+  // clang-off
+  const auto ret = fmt::format("{}.{} USING {}.{} ",
+                               TBENG_DBNAME_OF_MD,          // dbname
+                               tableName,                   // tableName
+                               TBENG_DBNAME_OF_MD,          // dbname
+                               TBENG_TABLE_NAME_OF_ORIG_MD  // stableName
+  );
+  // clang-on
+  return ret;
+}
+
+std::string Orders::getTDEngSqlRawValuesPart(void* data,
+                                             std::size_t dataLen) const {
+  std::string str(static_cast<const char*>(data), dataLen);
+  // clang-format off
+  const auto ret = fmt::format("VALUES({}, '{}', '{}') ", 
+    mdHeader_.localTs_,              // localTs_
+    tradingDay_,                     // tradingDay
+    Base64Encode(str)
+  );
+  // clang-format on
+  return ret;
+}
+
+std::string Books::toStr() const {
+  const auto ret = fmt::format(
+      "{} {} lastPrice: {} totalVol: {} totalAmt: "
+      "{} tradesCount: "
+      "{} asks bids tradingDay: {} extDataLen: {}",
+      shmHeader_.toStr(), mdHeader_.toStr(), lastPrice_, totalVol_, totalAmt_,
+      tradesCount_, tradingDay_, extDataLen_);
   return ret;
 }
 
@@ -122,6 +352,21 @@ std::string Books::data(std::uint32_t level) const {
   rapidjson::Writer<rapidjson::StringBuffer> writer(strBuf);
 
   writer.StartObject();
+
+  writer.Key("lastPrice");
+  writer.Double(lastPrice_);
+
+  writer.Key("totalVol");
+  writer.Double(totalVol_);
+
+  writer.Key("totalAmt");
+  writer.Double(totalAmt_);
+
+  writer.Key("tradesCount");
+  writer.Uint64(tradesCount_);
+
+  writer.Key("tradingDay");
+  writer.String(tradingDay_);
 
   writer.Key("asks");
   writer.StartArray();
@@ -172,14 +417,130 @@ std::string Books::dataOfUnifiedFmt(std::uint32_t level) const {
   return ret;
 }
 
+std::string Books::getTDEngSqlPrefix() const {
+  const auto tableName = fmt::format(
+      "{}{}{}{}{}{}{}", magic_enum::enum_name(mdHeader_.mdType_),
+      SEP_OF_TDENG_TABLE_NAME, magic_enum::enum_name(mdHeader_.symbolType_),
+      SEP_OF_TDENG_TABLE_NAME, GetMarketName(mdHeader_.marketCode_),
+      SEP_OF_TDENG_TABLE_NAME, mdHeader_.symbolCode_);
+  const auto stableName = magic_enum::enum_name(mdHeader_.mdType_);
+  // clang-off
+  const auto ret = fmt::format("{}.{} USING {}.{} ",
+                               TBENG_DBNAME_OF_MD,  // dbname
+                               tableName,           // tableName
+                               TBENG_DBNAME_OF_MD,  // dbname
+                               stableName           // stableName
+  );
+  // clang-on
+  return ret;
+}
+
+std::string Books::getTDEngSqlTagsPart() const {
+  // clang-format off
+  const auto ret = fmt::format("TAGS({}, {}, '{}') ", 
+    magic_enum::enum_integer(mdHeader_.symbolType_),   // symbolType
+    static_cast<std::uint16_t>(mdHeader_.marketCode_), // marketCode
+    mdHeader_.symbolCode_                              // symbolCode
+  );
+  // clang-format on
+  return ret;
+}
+
+std::string Books::getTDEngSqlRawTagsPart(const std::string& apiName) const {
+  // clang-format off
+  const auto ret = fmt::format("TAGS('{}', {}, {}, '{}') ", 
+    apiName,
+    magic_enum::enum_integer(mdHeader_.symbolType_),   // symbolType
+    static_cast<std::uint16_t>(mdHeader_.marketCode_), // marketCode
+    mdHeader_.symbolCode_                              // symbolCode
+  );
+  // clang-format on
+  return ret;
+}
+
+std::string Books::getTDEngSqlValuesPart() const {
+  const auto fmtStr = "{}{}{}{}{}{}";
+
+  std::string asks;
+  for (std::uint32_t i = 0; i < MAX_DEPTH_LEVEL; ++i) {
+    if (isApproximatelyZero(asks_[i].size_) &&
+        isApproximatelyZero(asks_[i].price_) &&
+        isApproximatelyZero(asks_[i].orderNum_))
+      break;
+    asks += fmt::format(fmtStr, asks_[i].price_, SEP_OF_DEPTH_FIELDS,
+                        asks_[i].size_, SEP_OF_DEPTH_FIELDS, asks_[i].orderNum_,
+                        SEP_OF_DEPTH_REC);
+  }
+  if (!asks.empty()) asks.pop_back();
+
+  std::string bids;
+  for (std::uint32_t i = 0; i < MAX_DEPTH_LEVEL; ++i) {
+    if (isApproximatelyZero(bids_[i].size_) &&
+        isApproximatelyZero(bids_[i].price_) &&
+        isApproximatelyZero(asks_[i].orderNum_))
+      break;
+    bids += fmt::format(fmtStr, bids_[i].price_, SEP_OF_DEPTH_FIELDS,
+                        bids_[i].size_, SEP_OF_DEPTH_FIELDS, bids_[i].orderNum_,
+                        SEP_OF_DEPTH_REC);
+  }
+  if (!bids.empty()) bids.pop_back();
+
+  // clang-format off
+  const auto ret = fmt::format("VALUES({}, {}, {}, {}, {}, {}, '{}', '{}', '{}') ", 
+    mdHeader_.exchTs_,
+    mdHeader_.localTs_,
+    lastPrice_,   
+    totalVol_,     
+    totalAmt_,       
+    tradesCount_,    
+    tradingDay_,      
+    asks,              
+    bids                
+  );
+  // clang-format on
+
+  return ret;
+}
+
+std::string Books::getTDEngSqlRawPrefix() const {
+  const auto tableName = fmt::format(
+      "{}{}{}{}{}{}{}{}{}", magic_enum::enum_name(mdHeader_.mdType_),
+      SEP_OF_TDENG_TABLE_NAME, magic_enum::enum_name(mdHeader_.symbolType_),
+      SEP_OF_TDENG_TABLE_NAME, GetMarketName(mdHeader_.marketCode_),
+      SEP_OF_TDENG_TABLE_NAME, mdHeader_.symbolCode_, SEP_OF_TDENG_TABLE_NAME,
+      TBENG_ORIG_DATA_TABLE_NAME_SUFFIX);
+  // clang-off
+  const auto ret = fmt::format("{}.{} USING {}.{} ",
+                               TBENG_DBNAME_OF_MD,          // dbname
+                               tableName,                   // tableName
+                               TBENG_DBNAME_OF_MD,          // dbname
+                               TBENG_TABLE_NAME_OF_ORIG_MD  // stableName
+  );
+  // clang-on
+  return ret;
+}
+
+std::string Books::getTDEngSqlRawValuesPart(void* data,
+                                            std::size_t dataLen) const {
+  std::string str(static_cast<const char*>(data), dataLen);
+  // clang-format off
+  const auto ret = fmt::format("VALUES({}, '{}', '{}') ", 
+    mdHeader_.localTs_,              // localTs_
+    tradingDay_,                     // tradingDay
+    Base64Encode(str)
+  );
+  // clang-format on
+  return ret;
+}
+
 std::string Tickers::toStr() const {
   const auto ret = fmt::format(
       "{} {} lastPrice: {}; lastSize: {}; askPrice: {}; "
-      "askSize: {}; bidPrice: {}; bidSize: {}; open24h: {}; "
-      "high24h: {}; low24h: {}; vol24h: {}; amt24h: {}; extDataLen: {}",
+      "askSize: {}; bidPrice: {}; bidSize: {}; open: {}; "
+      "high: {}; low: {}; vol: {}; amt: {}; extDataLen: {}",
       shmHeader_.toStr(), mdHeader_.toStr(), lastPrice_, lastSize_, askPrice_,
-      askSize_, bidPrice_, bidSize_, open24h_, high24h_, low24h_, vol24h_,
-      amt24h_, extDataLen_);
+      askSize_, bidPrice_, bidSize_, open_, high_, low_, vol_, amt_,
+      extDataLen_);
   return ret;
 }
 
@@ -193,10 +554,44 @@ std::string Tickers::data() const {
   rapidjson::Writer<rapidjson::StringBuffer> writer(strBuf);
 
   writer.StartObject();
+
+  writer.Key("open");
+  writer.Double(open_);
+  writer.Key("high");
+  writer.Double(high_);
+  writer.Key("low");
+  writer.Double(low_);
+
   writer.Key("lastPrice");
   writer.Double(lastPrice_);
   writer.Key("lastSize");
   writer.Double(lastSize_);
+
+  writer.Key("upperLimitPrice");
+  writer.Double(upperLimitPrice_);
+  writer.Key("lowerLimitPrice");
+  writer.Double(lowerLimitPrice_);
+
+  writer.Key("preClosePrice");
+  writer.Double(preClosePrice_);
+  writer.Key("preSettlementPrice");
+  writer.Double(preSettlementPrice_);
+
+  writer.Key("closePrice_");
+  writer.Double(closePrice_);
+  writer.Key("settlementPrice");
+  writer.Double(settlementPrice_);
+
+  writer.Key("preOpenInterest");
+  writer.Double(preOpenInterest_);
+  writer.Key("openInterest");
+  writer.Double(openInterest_);
+
+  writer.Key("vol");
+  writer.Double(vol_);
+  writer.Key("amt");
+  writer.Double(amt_);
+
   writer.Key("askPrice");
   writer.Double(askPrice_);
   writer.Key("askSize");
@@ -205,16 +600,45 @@ std::string Tickers::data() const {
   writer.Double(bidPrice_);
   writer.Key("bidSize");
   writer.Double(bidSize_);
-  writer.Key("open24h");
-  writer.Double(open24h_);
-  writer.Key("high24h");
-  writer.Double(high24h_);
-  writer.Key("low24h");
-  writer.Double(low24h_);
-  writer.Key("vol24h");
-  writer.Double(vol24h_);
-  writer.Key("amt24h");
-  writer.Double(amt24h_);
+
+  writer.Key("tradingDay");
+  writer.String(tradingDay_);
+
+  writer.Key("asks");
+  writer.StartArray();
+  for (std::size_t i = 0; i < MAX_DEPTH_LEVEL; ++i) {
+    if (isApproximatelyZero(asks_[i].price_) &&
+        isApproximatelyZero(asks_[i].size_) && asks_[i].orderNum_ == 0) {
+      break;
+    }
+    writer.StartObject();
+    writer.Key("price");
+    writer.Double(asks_[i].price_);
+    writer.Key("size");
+    writer.Double(asks_[i].size_);
+    writer.Key("orderNum");
+    writer.Uint(asks_[i].orderNum_);
+    writer.EndObject();
+  }
+  writer.EndArray();
+
+  writer.Key("bids");
+  writer.StartArray();
+  for (std::size_t i = 0; i < MAX_DEPTH_LEVEL; ++i) {
+    if (isApproximatelyZero(bids_[i].price_) &&
+        isApproximatelyZero(bids_[i].size_) && bids_[i].orderNum_ == 0) {
+      break;
+    }
+    writer.StartObject();
+    writer.Key("price");
+    writer.Double(bids_[i].price_);
+    writer.Key("size");
+    writer.Double(bids_[i].size_);
+    writer.Key("orderNum");
+    writer.Uint(bids_[i].orderNum_);
+    writer.EndObject();
+  }
+  writer.EndArray();
   writer.EndObject();
 
   return strBuf.GetString();
@@ -223,6 +647,130 @@ std::string Tickers::data() const {
 std::string Tickers::dataOfUnifiedFmt() const {
   const auto ret =
       fmt::format(R"({{"mdHeader":{},"data":{}}})", mdHeader_.toJson(), data());
+  return ret;
+}
+
+std::string Tickers::getTDEngSqlPrefix() const {
+  const auto tableName = fmt::format(
+      "{}{}{}{}{}{}{}", magic_enum::enum_name(mdHeader_.mdType_),
+      SEP_OF_TDENG_TABLE_NAME, magic_enum::enum_name(mdHeader_.symbolType_),
+      SEP_OF_TDENG_TABLE_NAME, GetMarketName(mdHeader_.marketCode_),
+      SEP_OF_TDENG_TABLE_NAME, mdHeader_.symbolCode_);
+  const auto stableName = magic_enum::enum_name(mdHeader_.mdType_);
+  // clang-off
+  const auto ret = fmt::format("{}.{} USING {}.{} ",
+                               TBENG_DBNAME_OF_MD,  // dbname
+                               tableName,           // tableName
+                               TBENG_DBNAME_OF_MD,  // dbname
+                               stableName           // stableName
+  );
+  // clang-on
+  return ret;
+}
+
+std::string Tickers::getTDEngSqlTagsPart() const {
+  // clang-format off
+  const auto ret = fmt::format("TAGS({}, {}, '{}') ", 
+    magic_enum::enum_integer(mdHeader_.symbolType_),   // symbolType
+    static_cast<std::uint16_t>(mdHeader_.marketCode_), // marketCode
+    mdHeader_.symbolCode_                              // symbolCode
+  );
+  // clang-format on
+  return ret;
+}
+
+std::string Tickers::getTDEngSqlRawTagsPart(const std::string& apiName) const {
+  // clang-format off
+  const auto ret = fmt::format("TAGS('{}', {}, {}, '{}') ", 
+    apiName,
+    magic_enum::enum_integer(mdHeader_.symbolType_),   // symbolType
+    static_cast<std::uint16_t>(mdHeader_.marketCode_), // marketCode
+    mdHeader_.symbolCode_                              // symbolCode
+  );
+  // clang-format on
+  return ret;
+}
+
+std::string Tickers::getTDEngSqlValuesPart() const {
+  const auto fmtStr = "{}{}{}{}{}{}";
+
+  std::string asks;
+  for (std::uint32_t i = 0; i < MAX_DEPTH_LEVEL_IN_TICKER; ++i) {
+    asks += fmt::format(fmtStr, asks_[i].price_, SEP_OF_DEPTH_FIELDS,
+                        asks_[i].size_, SEP_OF_DEPTH_FIELDS, asks_[i].orderNum_,
+                        SEP_OF_DEPTH_REC);
+  }
+  if (!asks.empty()) asks.pop_back();
+
+  std::string bids;
+  for (std::uint32_t i = 0; i < MAX_DEPTH_LEVEL_IN_TICKER; ++i) {
+    bids += fmt::format(fmtStr, bids_[i].price_, SEP_OF_DEPTH_FIELDS,
+                        bids_[i].size_, SEP_OF_DEPTH_FIELDS, bids_[i].orderNum_,
+                        SEP_OF_DEPTH_REC);
+  }
+  if (!bids.empty()) bids.pop_back();
+
+  // clang-format off
+  const auto ret = fmt::format(
+    "VALUES({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, '{}', '{}', '{}') ", 
+    mdHeader_.exchTs_,               
+    mdHeader_.localTs_,             
+    open_,
+    high_,
+    low_,
+    lastPrice_,
+    lastSize_,
+    upperLimitPrice_,
+    lowerLimitPrice_,
+    preClosePrice_,
+    preSettlementPrice_,
+    closePrice_,
+    settlementPrice_,
+    preOpenInterest_,
+    openInterest_,
+    askPrice_,
+    askSize_,
+    bidPrice_,
+    bidSize_,
+    vol_,
+    amt_,
+    tradingDay_,                    
+    asks,
+    bids
+  );
+  // clang-format on
+
+  return ret;
+}
+
+std::string Tickers::getTDEngSqlRawPrefix() const {
+  const auto tableName = fmt::format(
+      "{}{}{}{}{}{}{}{}{}", magic_enum::enum_name(mdHeader_.mdType_),
+      SEP_OF_TDENG_TABLE_NAME, magic_enum::enum_name(mdHeader_.symbolType_),
+      SEP_OF_TDENG_TABLE_NAME, GetMarketName(mdHeader_.marketCode_),
+      SEP_OF_TDENG_TABLE_NAME, mdHeader_.symbolCode_, SEP_OF_TDENG_TABLE_NAME,
+      TBENG_ORIG_DATA_TABLE_NAME_SUFFIX);
+  // clang-off
+  const auto ret = fmt::format("{}.{} USING {}.{} ",
+                               TBENG_DBNAME_OF_MD,          // dbname
+                               tableName,                   // tableName
+                               TBENG_DBNAME_OF_MD,          // dbname
+                               TBENG_TABLE_NAME_OF_ORIG_MD  // stableName
+  );
+  // clang-on
+  return ret;
+}
+
+std::string Tickers::getTDEngSqlRawValuesPart(void* data,
+                                              std::size_t dataLen) const {
+  std::string str(static_cast<const char*>(data), dataLen);
+  // clang-format off
+  const auto ret = fmt::format("VALUES({}, '{}', '{}') ", 
+    mdHeader_.localTs_,              // localTs_
+    tradingDay_,                     // tradingDay
+    Base64Encode(str)
+  );
+  // clang-format on
   return ret;
 }
 
@@ -268,6 +816,12 @@ std::string Candle::dataOfUnifiedFmt() const {
   return ret;
 }
 
+std::string Candle::getTDEngSqlPrefix() const { return ""; }
+
+std::string Candle::getTDEngSqlTagsPart() const { return ""; }
+
+std::string Candle::getTDEngSqlValuesPart() const { return ""; }
+
 std::string MakeMarketData(const SHMHeader& shmHeader, const MDHeader& mdHeader,
                            const std::string& data) {
   std::string ret;
@@ -282,7 +836,7 @@ void initMDHeader(SHMHeader& shmHeader, MDHeader& mdHeader, const Doc& doc) {
   mdHeader.localTs_ = doc["mdHeader"]["localTs"].GetUint64();
 
   const auto marketCode = doc["mdHeader"]["marketCode"].GetString();
-  mdHeader.marketCode_ = magic_enum::enum_cast<MarketCode>(marketCode).value();
+  mdHeader.marketCode_ = GetMarketCode(marketCode);
 
   const auto symbolType = doc["mdHeader"]["symbolType"].GetString();
   mdHeader.symbolType_ = magic_enum::enum_cast<SymbolType>(symbolType).value();
@@ -326,8 +880,8 @@ void initMDHeader(SHMHeader& shmHeader, MDHeader& mdHeader, const Doc& doc) {
     "mdType": "Trades"
   },
   "data": {
-    "tradeTs": 1669338603491000,
-    "tradeId": "1920957568-2242251309-22422513",
+    "tradeTime": 1669338603491000,
+    "tradeNo": "1920957568-2242251309-22422513",
     "price": 16529.42,
     "size": 0.00312,
     "side": "Bid"
@@ -346,9 +900,9 @@ std::tuple<int, Trades> MakeTrades(const std::string& jsonStr) {
 
   initMDHeader(ret.shmHeader_, ret.mdHeader_, doc);
 
-  ret.tradeTs_ = doc["data"]["tradeTs"].GetUint64();
-  strncpy(ret.tradeId_, doc["data"]["tradeId"].GetString(),
-          sizeof(ret.tradeId_));
+  ret.tradeTime_ = doc["data"]["tradeTime"].GetUint64();
+  strncpy(ret.tradeNo_, doc["data"]["tradeNo"].GetString(),
+          sizeof(ret.tradeNo_));
   ret.price_ = doc["data"]["price"].GetDouble();
   ret.size_ = doc["data"]["size"].GetDouble();
   const auto side = doc["data"]["side"].GetString();
@@ -477,11 +1031,11 @@ std::tuple<int, Candle> MakeCandle(const std::string& jsonStr) {
     "askSize": 0.0,
     "bidPrice": 0.0,
     "bidSize": 0.0,
-    "open24h": 16558.8,
-    "high24h": 16812.63,
-    "low24h": 16458.05,
-    "vol24h": 208577.12905,
-    "amt24h": 3464772623.884822
+    "open": 16558.8,
+    "high": 16812.63,
+    "low": 16458.05,
+    "vol": 208577.12905,
+    "amt": 3464772623.884822
   }
 }
 */
@@ -503,11 +1057,11 @@ std::tuple<int, Tickers> MakeTickers(const std::string& jsonStr) {
   ret.askSize_ = doc["data"]["askSize"].GetDouble();
   ret.bidPrice_ = doc["data"]["bidPrice"].GetDouble();
   ret.bidSize_ = doc["data"]["bidSize"].GetDouble();
-  ret.open24h_ = doc["data"]["open24h"].GetDouble();
-  ret.high24h_ = doc["data"]["high24h"].GetDouble();
-  ret.low24h_ = doc["data"]["low24h"].GetDouble();
-  ret.vol24h_ = doc["data"]["vol24h"].GetDouble();
-  ret.amt24h_ = doc["data"]["amt24h"].GetDouble();
+  ret.open_ = doc["data"]["open"].GetDouble();
+  ret.high_ = doc["data"]["high"].GetDouble();
+  ret.low_ = doc["data"]["low"].GetDouble();
+  ret.vol_ = doc["data"]["vol"].GetDouble();
+  ret.amt_ = doc["data"]["amt"].GetDouble();
 
   return {0, ret};
 }
@@ -516,6 +1070,8 @@ MsgId GetMsgIdByMDType(MDType mdType) {
   switch (mdType) {
     case MDType::Trades:
       return MSG_ID_ON_MD_TRADES;
+    case MDType::Orders:
+      return MSG_ID_ON_MD_ORDERS;
     case MDType::Books:
       return MSG_ID_ON_MD_BOOKS;
     case MDType::Tickers:

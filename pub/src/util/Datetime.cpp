@@ -79,6 +79,15 @@ std::tuple<int, std::uint64_t> ConvertISODatetimeToTs(
   }
 }
 
+std::uint64_t ConvertDatetimeToTs(std::int64_t datetime) {
+  const auto dt = fmt::format("{}", datetime);
+  const auto l = dt.substr(0, 8);
+  const auto r = dt.substr(8, dt.size() - 8);
+  const auto isoDatetime = fmt::format("{}T{}", l, r);
+  const auto [statusCode, ret] = ConvertISODatetimeToTs(isoDatetime);
+  return ret;
+}
+
 std::string GetDateInStrFmtFromTs(std::uint64_t ts) {
   const auto datetime = ConvertTsToPtime(ts);
   const auto ret = datetime.substr(0, 8);

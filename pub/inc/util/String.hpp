@@ -10,6 +10,8 @@
 
 #pragma once
 
+#include <boost/beast/core/detail/base64.hpp>
+
 #include "util/Pch.hpp"
 
 namespace bq {
@@ -73,5 +75,11 @@ std::string ReplaceSubStrBetween2Str(const std::string& str,
                                      const std::string& replaceStr,
                                      std::string_view leftStr,
                                      std::string_view rightStr);
+
+std::string CodeConvert(const char* inBuf, const char* fromCharset,
+                        const char* toCharset);
+
+std::string Base64Encode(const std::string& input);
+std::string Base64Decode(const std::string& input);
 
 }  // namespace bq

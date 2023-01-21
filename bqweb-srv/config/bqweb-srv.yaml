@@ -5,7 +5,8 @@ webSrvTaskDispatcherParam: moduleName=WebSrvTaskDispatcherParam;taskRandAssigned
 dbEngParam: svcName=dbEng; dbName=BetterQuant; host=0.0.0.0; port=3306; username=root; password=showmethemoney
 dbTaskDispatcherParam: moduleName=dbTaskDispatcher
 
-storageRootPath: data
+tdEngParam: host=0.0.0.0; port=0; db=; username=root; password=taosdata; connPoolSize=1
+maxNumOfRecReturned: 10000
 
 logger: 
   queueSize: 128

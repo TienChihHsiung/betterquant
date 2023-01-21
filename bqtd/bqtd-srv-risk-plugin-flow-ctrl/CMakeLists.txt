@@ -109,6 +109,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
       bqassetsmgr-d
       bqposmgr-d
       bqpub-d
+      bqipc-d
       pub-d
       )
 else()
@@ -118,6 +119,7 @@ else()
       bqassetsmgr
       bqposmgr
       bqpub
+      bqipc
       pub
       )
 endif()

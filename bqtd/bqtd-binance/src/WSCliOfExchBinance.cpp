@@ -45,12 +45,12 @@ WSCliAsyncTaskArgSPtr WSCliOfExchBinance::MakeWSCliAsyncTaskArg(
   WSCliAsyncTaskArgSPtr ret;
   const auto e = yyjson_get_str(valE);
   if (yyjson_equals_str(valE, "outboundAccountPosition")) {
-    ret = std::make_shared<WSCliAsyncTaskArg>(WSMsgType::SyncAssetsUpdate,
+    ret = std::make_shared<WSCliAsyncTaskArg>(MsgType::SyncAssetsUpdate,
                                               jsonData);
   } else if (yyjson_equals_str(valE, "executionReport") ||
              yyjson_equals_str(valE, "ORDER_TRADE_UPDATE")) {
     LOG_D("Recv {}", payload);
-    ret = std::make_shared<WSCliAsyncTaskArg>(WSMsgType::Order, jsonData);
+    ret = std::make_shared<WSCliAsyncTaskArg>(MsgType::Order, jsonData);
   } else {
     LOG_D("Unhandled event. {}", payload);
   }

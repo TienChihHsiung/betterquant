@@ -17,3 +17,8 @@ apt install -y uuid-dev
 apt install -y doxygen
 curl -L https://get.daocloud.io/docker/compose/releases/download/v2.10.2/docker-compose-`uname -s`-`uname -m` > /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
+
+# taos
+sudo apt install build-essential libjansson-dev libsnappy-dev liblzma-dev libz-dev zlib1g pkg-config
+git clone https://github.com/taosdata/TDengine.git /tmp
+cd /tmp/TDengine && ./build.sh && cd -

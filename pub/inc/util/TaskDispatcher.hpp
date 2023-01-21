@@ -32,6 +32,7 @@ template <typename Task>
 using CBHandleAsyncTask = std::function<void(AsyncTaskSPtr<Task>&)>;
 
 using CBOnThreadStart = std::function<void(std::uint32_t threadNo)>;
+using CBOnThreadExit = std::function<void(std::uint32_t threadNo)>;
 
 template <typename Task>
 using AsyncTaskBulk = std::deque<AsyncTaskSPtr<Task>>;
@@ -57,12 +58,14 @@ class TaskDispatcher {
                  const CBMsgParser<Task>& cbMsgParser,
                  const CBGetThreadNoForTask<Task>& cbGetThreadNoForTask,
                  const CBHandleAsyncTask<Task>& cbHandleAsyncTask,
-                 const CBOnThreadStart cbOnThreadStart = nullptr)
+                 const CBOnThreadStart cbOnThreadStart = nullptr,
+                 const CBOnThreadExit cbOnThreadExit = nullptr)
       : taskDispatcherParam_(taskDispatcherParam),
         cbMsgParser_(cbMsgParser),
         cbGetThreadNoForTask_(cbGetThreadNoForTask),
         cbHandleAsyncTask_(cbHandleAsyncTask),
-        cbOnThreadStart_(cbOnThreadStart) {}
+        cbOnThreadStart_(cbOnThreadStart),
+        cbOnThreadExit_(cbOnThreadExit) {}
 
   void init() {
     for (std::uint32_t i = 0;
@@ -128,6 +131,7 @@ class TaskDispatcher {
         continue;
       }
     }
+    if (cbOnThreadExit_) cbOnThreadExit_(i);
   }
 
   template <typename AsyncTaskQueue>
@@ -227,7 +231,9 @@ class TaskDispatcher {
   CBMsgParser<Task> cbMsgParser_{nullptr};
   CBGetThreadNoForTask<Task> cbGetThreadNoForTask_{nullptr};
   CBHandleAsyncTask<Task> cbHandleAsyncTask_{nullptr};
+
   CBOnThreadStart cbOnThreadStart_{nullptr};
+  CBOnThreadExit cbOnThreadExit_{nullptr};
 
   TaskDispatcherParamSPtr taskDispatcherParam_{nullptr};
 

@@ -16,6 +16,9 @@
 
 namespace bq {
 
+class FeeInfoCache;
+using FeeInfoCacheSPtr = std::shared_ptr<FeeInfoCache>;
+
 enum class IsSomeFieldOfOrderUpdated { True = 1, False = 2 };
 enum class IsTheOrderCanBeUsedCalcPos { True = 1, False = 2 };
 
@@ -25,17 +28,17 @@ using OrderInfoSPtr = std::shared_ptr<OrderInfo>;
 struct OrderInfo {
   SHMHeader shmHeader_;
 
-  ProductId productId_{DEFAULT_PRODUCT_ID};
+  ProductId productId_{0};
   UserId userId_{0};
   AcctId acctId_{0};
 
   StgId stgId_{0};
   StgInstId stgInstId_{0};
-  AlgoId algoId_{DEFAULT_ALGO_ID};
+  AlgoId algoId_{0};
 
   OrderId orderId_{0};
   ExchOrderId exchOrderId_{0};
-  OrderId parentOrderId_{DEFAULT_PARENT_ORDER_ID};
+  OrderId parentOrderId_{0};
 
   MarketCode marketCode_{MarketCode::Others};
   SymbolType symbolType_{SymbolType::Others};
@@ -54,7 +57,9 @@ struct OrderInfo {
   OrderTypeExtra orderTypeExtra_{OrderTypeExtra::Normal};
   std::uint64_t orderTime_{0};
 
+#ifdef SIMED_MODE
   char simedTDInfo_[MAX_SIMED_TD_INFO];
+#endif
 
   Decimal fee_{0};
   char feeCurrency_[MAX_CURRENCY_LEN];
@@ -72,7 +77,8 @@ struct OrderInfo {
   std::int32_t statusCode_{0};
 
   IsSomeFieldOfOrderUpdated updateByOrderInfoFromExch(
-      const OrderInfoSPtr& newOrderInfo, std::uint64_t noUsedToCalcPos);
+      const OrderInfoSPtr& newOrderInfo, std::uint64_t noUsedToCalcPos,
+      const FeeInfoCacheSPtr& feeInfoCache = nullptr);
 
   IsTheOrderCanBeUsedCalcPos updateByOrderInfoFromTDGW(
       const OrderInfoSPtr& newOrderInfo);
@@ -81,6 +87,8 @@ struct OrderInfo {
   bool notClosed() const { return !closed(); }
 
   std::string toShortStr() const;
+  std::string toJson() const;
+
   std::string getSqlOfReplace() const;
   std::string getSqlOfUSPOrderInfoUpdate() const;
   Decimal getFeeOfLastTrade() const;

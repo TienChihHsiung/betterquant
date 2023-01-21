@@ -17,6 +17,7 @@
 #include "def/Def.hpp"
 #include "def/StatusCode.hpp"
 #include "util/Datetime.hpp"
+#include "util/FeeInfoCache.hpp"
 #include "util/Json.hpp"
 #include "util/Logger.hpp"
 
@@ -114,6 +115,27 @@ std::tuple<int, OrderInfoSPtr> OrdMgr::getOrderInfo(OrderId orderId,
   return {SCODE_ORD_MGR_CAN_NOT_FIND_ORDER, nullptr};
 }
 
+std::tuple<int, OrderInfoSPtr> OrdMgr::getOrderInfoByExchOrderId(
+    ExchOrderId exchOrderId, DeepClone deepClone, LockFunc lockFunc) {
+  {
+    SPIN_LOCK(mtxOrderInfoGroup_);
+    auto& idx = orderInfoGroup_->get<TagExchOrderId>();
+    const auto iter = idx.find(exchOrderId);
+    if (iter != std::end(idx)) {
+      const auto orderInfo = deepClone == DeepClone::True
+                                 ? std::make_shared<OrderInfo>(**iter)
+                                 : *iter;
+      return {0, orderInfo};
+    }
+  }
+  LOG_W(
+      "Get order info from order info group failed "
+      "because of no order info of exch order id {} in order info group. ",
+      exchOrderId);
+
+  return {SCODE_ORD_MGR_CAN_NOT_FIND_ORDER, nullptr};
+}
+
 std::tuple<int, OrderInfoSPtr> OrdMgr::getOrderInfo(MarketCode marketCode,
                                                     ExchOrderId exchOrderId,
                                                     DeepClone deepClone,
@@ -159,7 +181,8 @@ std::vector<OrderInfoSPtr> OrdMgr::getOrderInfoGroup(
 std::tuple<IsSomeFieldOfOrderUpdated, OrderInfoSPtr>
 OrdMgr::updateByOrderInfoFromExch(const OrderInfoSPtr& orderInfoFromExch,
                                   std::uint64_t noUsedToCalcPos,
-                                  DeepClone deepClone, LockFunc lockFunc) {
+                                  DeepClone deepClone, LockFunc lockFunc,
+                                  const FeeInfoCacheSPtr& feeInfoCache) {
   IsSomeFieldOfOrderUpdated isTheOrderInfoUpdated =
       IsSomeFieldOfOrderUpdated::False;
   {
@@ -175,7 +198,7 @@ OrdMgr::updateByOrderInfoFromExch(const OrderInfoSPtr& orderInfoFromExch,
     }
 
     isTheOrderInfoUpdated = orderInfoInOrdMgr->updateByOrderInfoFromExch(
-        orderInfoFromExch, noUsedToCalcPos);
+        orderInfoFromExch, noUsedToCalcPos, feeInfoCache);
     if (orderInfoInOrdMgr->closed()) {
       remove(orderInfoInOrdMgr->orderId_, LockFunc::False);
     }
@@ -214,6 +237,23 @@ OrdMgr::updateByOrderInfoFromTDGW(const OrderInfoSPtr& orderInfoFromTDGW,
   }
 
   return {IsTheOrderCanBeUsedCalcPos::False, nullptr};
+}
+
+int OrdMgr::updateExchOrderId(OrderId orderId, ExchOrderId exchOrderId,
+                              LockFunc lockFunc) {
+  {
+    SPIN_LOCK(mtxOrderInfoGroup_);
+    auto& idx = orderInfoGroup_->get<TagOrderId>();
+    const auto iter = idx.find(orderId);
+    if (iter != std::end(idx)) {
+      if ((*iter)->exchOrderId_ == 0 && exchOrderId != 0) {
+        (*iter)->exchOrderId_ = exchOrderId;
+      }
+      return 0;
+    } else {
+      return SCODE_ORD_MGR_CAN_NOT_FIND_ORDER;
+    }
+  }
 }
 
 OrderInfoSPtr OrdMgr::getOrderInfo(const OrderInfoSPtr& orderInfo,

@@ -39,6 +39,9 @@ class StgInstTaskHandlerBase(object):
     def on_trades(self, stg_inst_info, trades):
         pass
 
+    def on_orders(self, stg_inst_info, orders):
+        pass
+
     def on_books(self, stg_inst_info, books):
         pass
 

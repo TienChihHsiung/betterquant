@@ -14,11 +14,16 @@
 #include "SHMIPCMsgId.hpp"
 #include "SHMSrv.hpp"
 #include "WebSrv.hpp"
+#include "def/BQConst.hpp"
 #include "def/CommonIPCData.hpp"
 #include "def/Def.hpp"
 #include "def/StatusCode.hpp"
+#include "taos.h"
+#include "tdeng/TDEngConnpool.hpp"
+#include "tdeng/TDEngUtil.hpp"
 #include "util/BQMDHis.hpp"
 #include "util/BQUtil.hpp"
+#include "util/Datetime.hpp"
 #include "util/Logger.hpp"
 
 using namespace bq::v1;
@@ -27,122 +32,286 @@ void QueryHisMD::queryBetween2Ts(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback,
     std::string &&marketCode, std::string &&symbolType,
-    std::string &&symbolCode, std::string &&mdType, std::string &&detail,
-    std::uint32_t level, std::uint64_t tsBegin, std::uint64_t tsEnd) {
-  const auto storageRootPath = CONFIG["storageRootPath"].as<std::string>();
-  // topic = MD@Binance@Spot@BTC-USDT@trades
-  auto topic = fmt::format("{}{}{}{}{}{}{}{}{}", TOPIC_PREFIX_OF_MARKET_DATA,
-                           SEP_OF_TOPIC, marketCode, SEP_OF_TOPIC, symbolType,
-                           SEP_OF_TOPIC, symbolCode, SEP_OF_TOPIC, mdType);
-  if (mdType == magic_enum::enum_name(MDType::Books)) {
-    topic = topic + SEP_OF_TOPIC + std::to_string(level);
-  } else if (mdType == magic_enum::enum_name(MDType::Candle)) {
-    if (boost::to_lower_copy(detail) == "true") {
-      topic = topic + SEP_OF_TOPIC + SUFFIX_OF_CANDLE_DETAIL;
-    }
+    std::string &&symbolCode, std::string &&mdType, std::uint64_t tsBegin,
+    std::uint64_t tsEnd, std::string &&freq) {
+  using namespace boost::gregorian;
+  const auto topic =
+      fmt::format("{}{}{}{}{}{}{}{}{}", TOPIC_PREFIX_OF_MARKET_DATA,
+                  SEP_OF_TOPIC, marketCode,  //
+                  SEP_OF_TOPIC, symbolType,  //
+                  SEP_OF_TOPIC, symbolCode,  //
+                  SEP_OF_TOPIC, mdType);
+  if (tsBegin > tsEnd) {
+    const auto statusMsg = fmt::format(
+        "Load his market data between 2 ts failed because "
+        "tsBegin {} greater than tsEnd {}. topic = {} ",
+        tsBegin, tsEnd, topic);
+    LOG_W(statusMsg);
+    const auto rsp =
+        makeHttpResponse(makeBody(SCODE_HIS_MD_INVALID_TS, statusMsg, ""));
+    callback(rsp);
+    return;
   }
-  const auto [ret, ts2HisMDGroup] =
-      md::MDHis::LoadHisMDBetweenTs(storageRootPath, topic, tsBegin, tsEnd);
-  const auto body = md::MDHis::ToJson(ret, ts2HisMDGroup);
 
-  auto resp = HttpResponse::newHttpResponse();
-  resp->setStatusCode(k200OK);
-  resp->setContentTypeCode(CT_APPLICATION_JSON);
-  resp->setBody(body);
-
-  callback(resp);
-}
-
-void QueryHisMD::queryBasedOnOffsetOfTs(
-    const HttpRequestPtr &req,
-    std::function<void(const HttpResponsePtr &)> &&callback,
-    std::string &&marketCode, std::string &&symbolType,
-    std::string &&symbolCode, std::string &&mdType, std::string &&detail,
-    std::uint32_t level, std::uint64_t ts, int offset) const {
-  const auto storageRootPath = CONFIG["storageRootPath"].as<std::string>();
-  // topic = MD@Binance@Spot@BTC-USDT@trades
-  auto topic = fmt::format("{}{}{}{}{}{}{}{}{}", TOPIC_PREFIX_OF_MARKET_DATA,
-                           SEP_OF_TOPIC, marketCode, SEP_OF_TOPIC, symbolType,
-                           SEP_OF_TOPIC, symbolCode, SEP_OF_TOPIC, mdType);
-  if (mdType == magic_enum::enum_name(MDType::Books)) {
-    topic = topic + SEP_OF_TOPIC + std::to_string(level);
-  } else if (mdType == magic_enum::enum_name(MDType::Candle)) {
-    if (boost::to_lower_copy(detail) == "true") {
-      topic = topic + SEP_OF_TOPIC + SUFFIX_OF_CANDLE_DETAIL;
-    }
+  const auto dateBegin = GetDateFromTs(tsBegin / 1000000);
+  const auto maxDataOfHisMD =
+      day_clock::universal_day() + date_duration(MAX_DATE_OFFSET_OF_QUERY_MD);
+  if (dateBegin > maxDataOfHisMD) {
+    const auto statusMsg = fmt::format(
+        "Load his market data between 2 ts failed because "
+        "tsBegin {} greater than {}. topic = {}",
+        tsBegin, to_iso_string(maxDataOfHisMD), topic);
+    LOG_W(statusMsg);
+    const auto rsp =
+        makeHttpResponse(makeBody(SCODE_HIS_MD_INVALID_TS, statusMsg, ""));
+    callback(rsp);
+    return;
   }
-  int ret = 0;
-  auto ts2HisMDGroup = std::make_shared<md::Ts2HisMDGroup>();
-  if (offset < 0) {
-    std::tie(ret, ts2HisMDGroup) =
-        md::MDHis::LoadHisMDBeforeTs(storageRootPath, topic, ts, offset * -1);
-  } else {
-    std::tie(ret, ts2HisMDGroup) =
-        md::MDHis::LoadHisMDAfterTs(storageRootPath, topic, ts, offset);
-  }
-  const auto body = md::MDHis::ToJson(ret, ts2HisMDGroup);
 
-  auto resp = HttpResponse::newHttpResponse();
-  resp->setStatusCode(k200OK);
-  resp->setContentTypeCode(CT_APPLICATION_JSON);
-  resp->setBody(body);
-  callback(resp);
+  const auto dateEnd = GetDateFromTs(tsEnd / 1000000);
+  if (dateEnd < from_undelimited_string(MIN_DATE_OF_HIS_MD)) {
+    const auto statusMsg = fmt::format(
+        "Load his market data between 2 ts failed because "
+        "tsEnd {} less than {}. topic = {}",
+        tsEnd, MIN_DATE_OF_HIS_MD, topic);
+    LOG_W(statusMsg);
+    const auto rsp =
+        makeHttpResponse(makeBody(SCODE_HIS_MD_INVALID_TS, statusMsg, ""));
+    callback(rsp);
+    return;
+  }
+
+  LOG_I("Begin to load his market data between {} and {}.",
+        ConvertTsToPtime(tsBegin), ConvertTsToPtime(tsEnd));
+
+  const auto stableName = TBENG_DBNAME_OF_MD;
+  std::string tableName;
+  tableName = fmt::format("{}{}{}{}{}{}{}", mdType, SEP_OF_TDENG_TABLE_NAME,
+                          symbolType, SEP_OF_TDENG_TABLE_NAME, marketCode,
+                          SEP_OF_TDENG_TABLE_NAME, symbolCode);
+  if (mdType == magic_enum::enum_name(MDType::Candle) && !freq.empty()) {
+    tableName.append(SEP_OF_TDENG_TABLE_NAME).append(freq);
+  }
+  const auto sql =
+      fmt::format("SELECT * FROM {}.{} where exchTs >= {} AND exchTs < {};",
+                  stableName, tableName, tsBegin, tsEnd);
+  const auto maxNumOfRecReturned =
+      CONFIG["maxNumOfRecReturned"].as<std::uint32_t>(10000);
+  const auto [statusCode, statusMsg, recNum, recSet] =
+      queryDataFromTDEng(sql, maxNumOfRecReturned);
+  const auto rsp = makeHttpResponse(makeBody(statusCode, statusMsg, recSet));
+  callback(rsp);
+  return;
 }
 
 void QueryHisMD::queryBeforeTs(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback,
     std::string &&marketCode, std::string &&symbolType,
-    std::string &&symbolCode, std::string &&mdType, std::string &&detail,
-    std::uint32_t level, std::uint64_t ts, int num) const {
-  const auto storageRootPath = CONFIG["storageRootPath"].as<std::string>();
-  // topic = MD@Binance@Spot@BTC-USDT@trades
-  auto topic = fmt::format("{}{}{}{}{}{}{}{}{}", TOPIC_PREFIX_OF_MARKET_DATA,
-                           SEP_OF_TOPIC, marketCode, SEP_OF_TOPIC, symbolType,
-                           SEP_OF_TOPIC, symbolCode, SEP_OF_TOPIC, mdType);
-  if (mdType == magic_enum::enum_name(MDType::Books)) {
-    topic = topic + SEP_OF_TOPIC + std::to_string(level);
-  } else if (mdType == magic_enum::enum_name(MDType::Candle)) {
-    if (boost::to_lower_copy(detail) == "true") {
-      topic = topic + SEP_OF_TOPIC + SUFFIX_OF_CANDLE_DETAIL;
-    }
-  }
-  const auto [statusCode, ts2HisMDGroup] =
-      md::MDHis::LoadHisMDBeforeTs(storageRootPath, topic, ts, num);
-  const auto body = md::MDHis::ToJson(statusCode, ts2HisMDGroup);
+    std::string &&symbolCode, std::string &&mdType, std::uint64_t ts, int num,
+    std::string &&freq) const {
+  using namespace boost::gregorian;
+  const auto topic =
+      fmt::format("{}{}{}{}{}{}{}{}{}", TOPIC_PREFIX_OF_MARKET_DATA,
+                  SEP_OF_TOPIC, marketCode,  //
+                  SEP_OF_TOPIC, symbolType,  //
+                  SEP_OF_TOPIC, symbolCode,  //
+                  SEP_OF_TOPIC, mdType);
 
-  auto resp = HttpResponse::newHttpResponse();
-  resp->setStatusCode(k200OK);
-  resp->setContentTypeCode(CT_APPLICATION_JSON);
-  resp->setBody(body);
-  callback(resp);
+  const auto maxNumOfRecReturned = CONFIG["maxNumOfRecReturned"].as<int>(10000);
+  if (num > maxNumOfRecReturned) {
+    const auto statusMsg = fmt::format(
+        "Load his market data before ts failed because "
+        "rec num of result {} greater than the query limit {}. topic = {}",
+        num, maxNumOfRecReturned, topic);
+    LOG_W(statusMsg);
+    const auto rsp = makeHttpResponse(makeBody(
+        SCODE_HIS_MD_NUM_OF_RECORDS_GREATER_THAN_LIMIT, statusMsg, ""));
+    callback(rsp);
+    return;
+  }
+
+  const auto dateBegin = GetDateFromTs(ts / 1000000);
+  if (dateBegin < from_undelimited_string(MIN_DATE_OF_HIS_MD)) {
+    const auto statusMsg = fmt::format(
+        "Load his markete data before ts failed because "
+        "ts {} less than {}. topic = {}",
+        ts, MIN_DATE_OF_HIS_MD, topic);
+    LOG_W(statusMsg);
+    const auto rsp =
+        makeHttpResponse(makeBody(SCODE_HIS_MD_INVALID_TS, statusMsg, ""));
+    callback(rsp);
+    return;
+  }
+
+  if (dateBegin >
+      day_clock::universal_day() + date_duration(MAX_DATE_OFFSET_OF_QUERY_MD)) {
+    const auto statusMsg = fmt::format(
+        "Load his market data before ts failed because "
+        "ts {} greater than the day after tomorrow. topic = {}",
+        ts, topic);
+    LOG_W(statusMsg);
+    const auto rsp =
+        makeHttpResponse(makeBody(SCODE_HIS_MD_INVALID_TS, statusMsg, ""));
+    callback(rsp);
+    return;
+  }
+
+  const auto dateEnd = from_undelimited_string(MIN_DATE_OF_HIS_MD);
+  LOG_I("Begin to load {} numbers of of his market data before {}. topic = {}",
+        num, ConvertTsToPtime(ts), topic);
+
+  const auto stableName = TBENG_DBNAME_OF_MD;
+  std::string tableName;
+  tableName = fmt::format("{}{}{}{}{}{}{}", mdType, SEP_OF_TDENG_TABLE_NAME,
+                          symbolType, SEP_OF_TDENG_TABLE_NAME, marketCode,
+                          SEP_OF_TDENG_TABLE_NAME, symbolCode);
+  if (mdType == magic_enum::enum_name(MDType::Candle) && !freq.empty()) {
+    tableName.append(SEP_OF_TDENG_TABLE_NAME).append(freq);
+  }
+  const auto sql =
+      fmt::format("SELECT * FROM {}.{} where exchTs <= {} limit {};",
+                  stableName, tableName, ts, num);
+  const auto [statusCode, statusMsg, recNum, recSet] =
+      queryDataFromTDEng(sql, maxNumOfRecReturned);
+  if (recNum < num) {
+    const auto rsp = makeHttpResponse(makeBody(
+        SCODE_HIS_MD_RECORDS_LESS_THAN_NUM_OF_QURIES,
+        GetStatusMsg(SCODE_HIS_MD_RECORDS_LESS_THAN_NUM_OF_QURIES), recSet));
+    callback(rsp);
+    return;
+  }
+  const auto rsp = makeHttpResponse(makeBody(statusCode, statusMsg, recSet));
+  callback(rsp);
+  return;
 }
 
 void QueryHisMD::queryAfterTs(
     const HttpRequestPtr &req,
     std::function<void(const HttpResponsePtr &)> &&callback,
     std::string &&marketCode, std::string &&symbolType,
-    std::string &&symbolCode, std::string &&mdType, std::string &&detail,
-    std::uint32_t level, std::uint64_t ts, int num) const {
-  const auto storageRootPath = CONFIG["storageRootPath"].as<std::string>();
-  // topic = MD@Binance@Spot@BTC-USDT@trades
-  auto topic = fmt::format("{}{}{}{}{}{}{}{}{}", TOPIC_PREFIX_OF_MARKET_DATA,
-                           SEP_OF_TOPIC, marketCode, SEP_OF_TOPIC, symbolType,
-                           SEP_OF_TOPIC, symbolCode, SEP_OF_TOPIC, mdType);
-  if (mdType == magic_enum::enum_name(MDType::Books)) {
-    topic = topic + SEP_OF_TOPIC + std::to_string(level);
-  } else if (mdType == magic_enum::enum_name(MDType::Candle)) {
-    if (boost::to_lower_copy(detail) == "true") {
-      topic = topic + SEP_OF_TOPIC + SUFFIX_OF_CANDLE_DETAIL;
-    }
-  }
-  const auto [statusCode, ts2HisMDGroup] =
-      md::MDHis::LoadHisMDAfterTs(storageRootPath, topic, ts, num);
-  const auto body = md::MDHis::ToJson(statusCode, ts2HisMDGroup);
+    std::string &&symbolCode, std::string &&mdType, std::uint64_t ts, int num,
+    std::string &&freq) const {
+  using namespace boost::gregorian;
+  const auto topic =
+      fmt::format("{}{}{}{}{}{}{}{}{}", TOPIC_PREFIX_OF_MARKET_DATA,
+                  SEP_OF_TOPIC, marketCode,  //
+                  SEP_OF_TOPIC, symbolType,  //
+                  SEP_OF_TOPIC, symbolCode,  //
+                  SEP_OF_TOPIC, mdType);
 
+  const auto maxNumOfRecReturned = CONFIG["maxNumOfRecReturned"].as<int>(10000);
+  if (num > maxNumOfRecReturned) {
+    const auto statusMsg = fmt::format(
+        "Load his market data after ts failed because "
+        "rec num of result {} greater than the query limit {}. topic = {}",
+        num, maxNumOfRecReturned, topic);
+    LOG_W(statusMsg);
+    const auto rsp = makeHttpResponse(makeBody(
+        SCODE_HIS_MD_NUM_OF_RECORDS_GREATER_THAN_LIMIT, statusMsg, ""));
+    callback(rsp);
+    return;
+  }
+
+  const auto dateBegin = GetDateFromTs(ts / 1000000);
+  if (dateBegin < from_undelimited_string(MIN_DATE_OF_HIS_MD)) {
+    const auto statusMsg = fmt::format(
+        "Load his market data after ts failed because "
+        "ts {} less than {}. topic = {}",
+        ts, MIN_DATE_OF_HIS_MD, topic);
+    LOG_W(statusMsg);
+    const auto rsp =
+        makeHttpResponse(makeBody(SCODE_HIS_MD_INVALID_TS, statusMsg, ""));
+    callback(rsp);
+    return;
+  }
+
+  const auto dateEnd =
+      day_clock::universal_day() + date_duration(MAX_DATE_OFFSET_OF_QUERY_MD);
+  if (dateBegin > dateEnd) {
+    const auto statusMsg = fmt::format(
+        "Load his market data after ts failed because "
+        "ts {} greater than the day after tomorrow. topic = {}",
+        ts, topic);
+    LOG_W(statusMsg);
+    const auto rsp =
+        makeHttpResponse(makeBody(SCODE_HIS_MD_INVALID_TS, statusMsg, ""));
+    callback(rsp);
+    return;
+  }
+
+  LOG_I("Begin to load {} numbers of his market data after {}. topic = {}", num,
+        ConvertTsToPtime(ts), topic);
+
+  const auto stableName = TBENG_DBNAME_OF_MD;
+  std::string tableName;
+  tableName = fmt::format("{}{}{}{}{}{}{}", mdType, SEP_OF_TDENG_TABLE_NAME,
+                          symbolType, SEP_OF_TDENG_TABLE_NAME, marketCode,
+                          SEP_OF_TDENG_TABLE_NAME, symbolCode);
+  if (mdType == magic_enum::enum_name(MDType::Candle) && !freq.empty()) {
+    tableName.append(SEP_OF_TDENG_TABLE_NAME).append(freq);
+  }
+  const auto sql =
+      fmt::format("SELECT * FROM {}.{} where exchTs >= {} limit {};",
+                  stableName, tableName, ts, num);
+  const auto [statusCode, statusMsg, recNum, recSet] =
+      queryDataFromTDEng(sql, maxNumOfRecReturned);
+  if (recNum < num) {
+    const auto rsp = makeHttpResponse(makeBody(
+        SCODE_HIS_MD_RECORDS_LESS_THAN_NUM_OF_QURIES,
+        GetStatusMsg(SCODE_HIS_MD_RECORDS_LESS_THAN_NUM_OF_QURIES), recSet));
+    callback(rsp);
+    return;
+  }
+  const auto rsp = makeHttpResponse(makeBody(statusCode, statusMsg, recSet));
+  callback(rsp);
+  return;
+}
+
+std::tuple<int, std::string, int, std::string> QueryHisMD::queryDataFromTDEng(
+    const std::string &sql, std::uint32_t maxRecNum) const {
+  int statusCode = 0;
+  std::string statusMsg;
+  int recNum = 0;
+  std::string recSet;
+
+  const auto conn =
+      WebSrv::get_const_instance().getTDEngConnpool()->getIdleConn();
+  const auto res = taos_query(conn->taos_, sql.c_str());
+  const auto errorCode = taos_errno(res);
+  if (errorCode == 0) {
+    std::tie(statusCode, recNum, recSet) =
+        tdeng::GetJsonDataFromRes(res, maxRecNum);
+    if (statusCode != 0) recSet = "";
+    statusMsg = GetStatusMsg(statusCode);
+  } else {
+    statusCode = SCODE_TDENG_EXEC_SQL_FAILED;
+    statusMsg = fmt::format("Exec sql of tdeng failed. [{} - {}]", errorCode,
+                            taos_errno(res));
+    LOG_W(statusMsg);
+  }
+  taos_free_result(res);
+  WebSrv::get_const_instance().getTDEngConnpool()->giveBackConn(conn);
+
+  return {statusCode, statusMsg, recNum, recSet};
+}
+
+std::string QueryHisMD::makeBody(int statusCode, const std::string &statusMsg,
+                                 std::string data) const {
+  if (!data.empty()) {
+    data[0] = ',';
+  } else {
+    data = ",\"data\":[]}";
+  }
+  std::string body = fmt::format("{{\"statusCode\":{},\"statusMsg\":\"{}\"{}",
+                                 statusCode, statusMsg, data);
+  return body;
+}
+
+HttpResponsePtr QueryHisMD::makeHttpResponse(const std::string &body) const {
   auto resp = HttpResponse::newHttpResponse();
   resp->setStatusCode(k200OK);
   resp->setContentTypeCode(CT_APPLICATION_JSON);
   resp->setBody(body);
-  callback(resp);
+  return resp;
 }
