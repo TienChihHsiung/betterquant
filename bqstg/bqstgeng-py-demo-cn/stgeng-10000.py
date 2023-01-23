@@ -100,6 +100,9 @@ class StgInstTaskHandler(StgInstTaskHandlerBase):
                 stg_inst_info.stg_inst_id, "shm://MD.SSE.Spot/603123/Orders"
             )
             self.stg_eng.sub(
+                stg_inst_info.stg_inst_id, "shm://MD.SSE.Spot/603123/Trades"
+            )
+            self.stg_eng.sub(
                 stg_inst_info.stg_inst_id, "shm://MD.SZSE.Spot/000002/Trades"
             )
 
@@ -201,6 +204,9 @@ class StgInstTaskHandler(StgInstTaskHandlerBase):
 
     def on_trades(self, stg_inst_info, trades):
         market_data = json.dumps(trades)
+
+    def on_orders(self, stg_inst_info, orders):
+        market_data = json.dumps(orders)
 
     def on_books(self, stg_inst_info, books):
         market_data = json.dumps(books)

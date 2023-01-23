@@ -51,6 +51,12 @@ using RawMDHandlerSPtr = std::shared_ptr<RawMDHandler>;
 class MDStorageSvc;
 using MDStorageSvcSPtr = std::shared_ptr<MDStorageSvc>;
 
+class MDCache;
+using MDCacheSPtr = std::shared_ptr<MDCache>;
+
+class MDPlayback;
+using MDPlaybackSPtr = std::shared_ptr<MDPlayback>;
+
 class MDSvcOfCN : public SvcBase {
  public:
   MDSvcOfCN(const MDSvcOfCN&) = delete;
@@ -78,7 +84,20 @@ class MDSvcOfCN : public SvcBase {
 
  protected:
   int beforeRun() final;
+
+ private:
+  virtual int startGateway() = 0;
+  int startGatewayOfSim();
+
+ protected:
   int afterRun() final;
+
+ private:
+  void beforeExit(const boost::system::error_code* ec, int signalNum) final;
+
+ private:
+  virtual void stopGateway() {}
+  void stopGatewayOfSim();
 
  private:
   void doExit(const boost::system::error_code* ec, int signalNum) final;
@@ -99,6 +118,7 @@ class MDSvcOfCN : public SvcBase {
   MDStorageSvcSPtr getMDStorageSvc() const { return mdStorageSvc_; }
 
   TopicMgrSPtr getTopicMgr() const { return topicMgr_; }
+  MDCacheSPtr getMDCache() const { return mdCache_; }
   std::string getTradingDay() const { return tradingDay_; }
 
  private:
@@ -112,6 +132,9 @@ class MDSvcOfCN : public SvcBase {
   MDStorageSvcSPtr mdStorageSvc_{nullptr};
 
   TopicMgrSPtr topicMgr_{nullptr};
+
+  MDCacheSPtr mdCache_{nullptr};
+  MDPlaybackSPtr mdPlayback_{nullptr};
 
   std::string tradingDay_;
 };

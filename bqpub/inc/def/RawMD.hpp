@@ -21,9 +21,10 @@ template <typename Task>
 struct AsyncTask;
 
 struct RawMD {
-  RawMD(MsgType msgType, void* data, std::uint32_t dataLen) {
+  RawMD(MsgType msgType, const void* data, std::uint32_t dataLen,
+        std::uint64_t localTs = GetTotalUSSince1970()) {
     msgType_ = msgType;
-    localTs_ = GetTotalUSSince1970();
+    localTs_ = localTs;
 
     dataLen_ = dataLen;
     data_ = malloc(dataLen);

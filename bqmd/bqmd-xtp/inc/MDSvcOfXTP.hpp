@@ -38,11 +38,13 @@ class MDSvcOfXTP : public MDSvcOfCN {
   int beforeInit() final;
 
  private:
-  int doRun() final;
-  int startGateway();
+  int startGateway() final;
 
  private:
-  void beforeExit(const boost::system::error_code* ec, int signalNum) final;
+  int doRun() final;
+
+ private:
+  void stopGateway() final;
 
  private:
   void doSub(const MarketDataCondGroup& marketDataCond) final;

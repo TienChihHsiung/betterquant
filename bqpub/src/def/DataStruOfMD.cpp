@@ -143,11 +143,12 @@ std::string Trades::getTDEngSqlTagsPart() const {
 
 std::string Trades::getTDEngSqlRawTagsPart(const std::string& apiName) const {
   // clang-format off
-  const auto ret = fmt::format("TAGS('{}', {}, {}, '{}') ", 
+  const auto ret = fmt::format("TAGS('{}', {}, {}, '{}', {}) ", 
     apiName,
     magic_enum::enum_integer(mdHeader_.symbolType_),   // symbolType
     static_cast<std::uint16_t>(mdHeader_.marketCode_), // marketCode
-    mdHeader_.symbolCode_                              // symbolCode
+    mdHeader_.symbolCode_,                             // symbolCode
+    magic_enum::enum_integer(mdHeader_.mdType_)        // mdType
   );
   // clang-format on
   return ret;
@@ -193,8 +194,9 @@ std::string Trades::getTDEngSqlRawValuesPart(void* data,
                                              std::size_t dataLen) const {
   std::string str(static_cast<const char*>(data), dataLen);
   // clang-format off
-  const auto ret = fmt::format("VALUES({}, '{}', '{}') ", 
-    mdHeader_.localTs_,              // localTs_
+  const auto ret = fmt::format("VALUES({}, {}, '{}', '{}') ", 
+    mdHeader_.localTs_,              // localTs
+    mdHeader_.exchTs_,               // exchTs
     tradingDay_,                     // tradingDay
     Base64Encode(str)
   );
@@ -275,11 +277,12 @@ std::string Orders::getTDEngSqlTagsPart() const {
 
 std::string Orders::getTDEngSqlRawTagsPart(const std::string& apiName) const {
   // clang-format off
-  const auto ret = fmt::format("TAGS('{}', {}, {}, '{}') ", 
+  const auto ret = fmt::format("TAGS('{}', {}, {}, '{}', {}) ", 
     apiName,
     magic_enum::enum_integer(mdHeader_.symbolType_),   // symbolType
     static_cast<std::uint16_t>(mdHeader_.marketCode_), // marketCode
-    mdHeader_.symbolCode_                              // symbolCode
+    mdHeader_.symbolCode_,                             // symbolCode
+    magic_enum::enum_integer(mdHeader_.mdType_)        // mdType
   );
   // clang-format on
   return ret;
@@ -323,8 +326,9 @@ std::string Orders::getTDEngSqlRawValuesPart(void* data,
                                              std::size_t dataLen) const {
   std::string str(static_cast<const char*>(data), dataLen);
   // clang-format off
-  const auto ret = fmt::format("VALUES({}, '{}', '{}') ", 
-    mdHeader_.localTs_,              // localTs_
+  const auto ret = fmt::format("VALUES({}, {}, '{}', '{}') ", 
+    mdHeader_.localTs_,              // localTs
+    mdHeader_.exchTs_,               // exchTs
     tradingDay_,                     // tradingDay
     Base64Encode(str)
   );
@@ -448,11 +452,12 @@ std::string Books::getTDEngSqlTagsPart() const {
 
 std::string Books::getTDEngSqlRawTagsPart(const std::string& apiName) const {
   // clang-format off
-  const auto ret = fmt::format("TAGS('{}', {}, {}, '{}') ", 
+  const auto ret = fmt::format("TAGS('{}', {}, {}, '{}', {}) ", 
     apiName,
     magic_enum::enum_integer(mdHeader_.symbolType_),   // symbolType
     static_cast<std::uint16_t>(mdHeader_.marketCode_), // marketCode
-    mdHeader_.symbolCode_                              // symbolCode
+    mdHeader_.symbolCode_,                             // symbolCode
+    magic_enum::enum_integer(mdHeader_.mdType_)        // mdType
   );
   // clang-format on
   return ret;
@@ -524,8 +529,9 @@ std::string Books::getTDEngSqlRawValuesPart(void* data,
                                             std::size_t dataLen) const {
   std::string str(static_cast<const char*>(data), dataLen);
   // clang-format off
-  const auto ret = fmt::format("VALUES({}, '{}', '{}') ", 
-    mdHeader_.localTs_,              // localTs_
+  const auto ret = fmt::format("VALUES({}, {}, '{}', '{}') ", 
+    mdHeader_.localTs_,              // localTs
+    mdHeader_.exchTs_,               // exchTs
     tradingDay_,                     // tradingDay
     Base64Encode(str)
   );
@@ -681,11 +687,12 @@ std::string Tickers::getTDEngSqlTagsPart() const {
 
 std::string Tickers::getTDEngSqlRawTagsPart(const std::string& apiName) const {
   // clang-format off
-  const auto ret = fmt::format("TAGS('{}', {}, {}, '{}') ", 
+  const auto ret = fmt::format("TAGS('{}', {}, {}, '{}', {}) ", 
     apiName,
     magic_enum::enum_integer(mdHeader_.symbolType_),   // symbolType
     static_cast<std::uint16_t>(mdHeader_.marketCode_), // marketCode
-    mdHeader_.symbolCode_                              // symbolCode
+    mdHeader_.symbolCode_,                             // symbolCode
+    magic_enum::enum_integer(mdHeader_.mdType_)        // mdType
   );
   // clang-format on
   return ret;
@@ -765,8 +772,9 @@ std::string Tickers::getTDEngSqlRawValuesPart(void* data,
                                               std::size_t dataLen) const {
   std::string str(static_cast<const char*>(data), dataLen);
   // clang-format off
-  const auto ret = fmt::format("VALUES({}, '{}', '{}') ", 
-    mdHeader_.localTs_,              // localTs_
+  const auto ret = fmt::format("VALUES({}, {}, '{}', '{}') ", 
+    mdHeader_.localTs_,              // localTs
+    mdHeader_.exchTs_,               // exchTs
     tradingDay_,                     // tradingDay
     Base64Encode(str)
   );

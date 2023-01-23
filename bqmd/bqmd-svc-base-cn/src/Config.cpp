@@ -38,6 +38,8 @@ int Config::afterInit(const std::string& configFilename) {
 
   apiInfo_->loggerPath_ = CONFIG["api"]["loggerPath"].as<std::string>();
 
+  isRealMode_ = CONFIG["simedMode"]["enable"].as<bool>() == false;
+
   return 0;
 }
 

@@ -22,7 +22,14 @@ using TAOS_RES = void;
 
 namespace bq::tdeng {
 
+class TDEngConnpool;
+using TDEngConnpoolSPtr = std::shared_ptr<TDEngConnpool>;
+
 std::tuple<int, std::uint32_t, std::string> GetJsonDataFromRes(
     TAOS_RES *res, std::uint32_t maxRecNum);
 
-}
+std::tuple<int, std::string, int, std::string> QueryDataFromTDEng(
+    const TDEngConnpoolSPtr &tdEngConnpool, const std::string &sql,
+    std::uint32_t maxRecNum);
+
+}  // namespace bq::tdeng

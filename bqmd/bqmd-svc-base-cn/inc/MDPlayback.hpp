@@ -13,16 +13,15 @@
 #include "def/BQConst.hpp"
 #include "util/Pch.hpp"
 
-namespace bq::md {
+namespace bq::md::svc {
 
 struct MarketDataOfSim;
 using MarketDataOfSimSPtr = std::shared_ptr<MarketDataOfSim>;
 
-using Ts2MarketDataOfSimGroup =
-    std::multimap<std::uint64_t, MarketDataOfSimSPtr>;
+using Ts2MarketDataOfSimGroup = std::map<std::uint64_t, MarketDataOfSimSPtr>;
 using Ts2MarketDataOfSimGroupSPtr = std::shared_ptr<Ts2MarketDataOfSimGroup>;
 
-class MDSim;
+class MDSvcOfCN;
 
 class MDPlayback;
 using MDPlaybackSPtr = std::shared_ptr<MDPlayback>;
@@ -34,7 +33,7 @@ class MDPlayback {
   MDPlayback(const MDPlayback&&) = delete;
   MDPlayback& operator=(const MDPlayback&&) = delete;
 
-  explicit MDPlayback(MDSim* mdSim) : mdSim_(mdSim) {}
+  explicit MDPlayback(MDSvcOfCN* mdSvc) : mdSvc_(mdSvc) {}
 
  public:
   void start();
@@ -46,11 +45,11 @@ class MDPlayback {
   void playback(const Ts2MarketDataOfSimGroupSPtr& ts2MarketDataOfSimGroup);
 
  private:
-  MDSim* mdSim_{nullptr};
+  MDSvcOfCN* mdSvc_{nullptr};
 
   std::atomic_bool keepRunning_{true};
   std::unique_ptr<std::thread> threadPlayback_{nullptr};
   std::uint32_t playbackSpeed_{1};
 };
 
-}  // namespace bq::md
+}  // namespace bq::md::svc

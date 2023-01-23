@@ -32,6 +32,10 @@ class RawMDHandlerOfXTP : public RawMDHandler {
 
   using RawMDHandler::RawMDHandler;
 
+ public:
+  RawMDSPtr makeRawMD(MsgType msgType, const void* data,
+                      std::size_t dataLen) final;
+
  private:
   std::tuple<int, RawMDAsyncTaskSPtr> makeAsyncTask(
       const RawMDSPtr& task) final;

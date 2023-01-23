@@ -12,6 +12,8 @@
 
 #include "def/StatusCode.hpp"
 #include "taos.h"
+#include "tdeng/TDEngConnpool.hpp"
+#include "util/Logger.hpp"
 
 typedef int16_t VarDataLenT;
 
@@ -139,6 +141,34 @@ std::tuple<int, std::uint32_t, std::string> GetJsonDataFromRes(
 
   const std::string recSet = strBuf.GetString();
   return {statusCode, recNum, recSet};
+}
+
+std::tuple<int, std::string, int, std::string> QueryDataFromTDEng(
+    const TDEngConnpoolSPtr &tdEngConnpool, const std::string &sql,
+    std::uint32_t maxRecNum) {
+  int statusCode = 0;
+  std::string statusMsg;
+  int recNum = 0;
+  std::string recSet;
+
+  const auto conn = tdEngConnpool->getIdleConn();
+  const auto res = taos_query(conn->taos_, sql.c_str());
+  const auto errorCode = taos_errno(res);
+  if (errorCode == 0) {
+    std::tie(statusCode, recNum, recSet) =
+        tdeng::GetJsonDataFromRes(res, maxRecNum);
+    if (statusCode != 0) recSet = "";
+    statusMsg = GetStatusMsg(statusCode);
+  } else {
+    statusCode = SCODE_TDENG_EXEC_SQL_FAILED;
+    statusMsg = fmt::format("Exec sql of tdeng failed. [{} - {}]", errorCode,
+                            taos_errno(res));
+    LOG_W(statusMsg);
+  }
+  taos_free_result(res);
+  tdEngConnpool->giveBackConn(conn);
+
+  return {statusCode, statusMsg, recNum, recSet};
 }
 
 }  // namespace bq::tdeng

@@ -2,7 +2,7 @@ marketCodeGroup: [SSE, SZSE]
 symbolType: Spot 
 
 subAllMarketData: true
-saveMarketData: false
+saveMarketData: true
 enableSymbolTableMaint: false
 
 checkIFExchTsOfMDIsInc: false
@@ -24,7 +24,15 @@ api:
   udpAsynOutputLog: true
 
 simedMode:
-  enable: false
+  enable: true
+  playbackMD: "SELECT * FROM marketdata.origdata where apiname= 'XTP' AND symbolCode IN (588180, 603123, 000002)"
+  playbackSpeed: 10000
+  playbackDateTimeStart: 20230120T000000
+  playbackDateTimeEnd: 20230123T230000
+  milliSecIntervalBetweenCacheCheck: 1000
+  numOfCacheMD: 5
+  secOfCacheMD: 3600
+  secOffsetOfExchAndLocalTs: 10
 
 rawMDHandlerParam: moduleName=rawMDHandler; numOfUnprocessedTaskAlert=1000; taskRandAllocThreadPoolSize=0; taskSpecificThreadPoolSize=4
 

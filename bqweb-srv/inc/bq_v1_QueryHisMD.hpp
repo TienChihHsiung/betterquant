@@ -59,8 +59,6 @@ class QueryHisMD : public drogon::HttpController<QueryHisMD> {
                     std::uint64_t ts, int num, std::string &&freq) const;
 
  private:
-  std::tuple<int, std::string, int, std::string> queryDataFromTDEng(
-      const std::string &sql, std::uint32_t maxRecNum) const;
   std::string makeBody(int statusCode, const std::string &statusMsg,
                        std::string recSet) const;
 

@@ -58,6 +58,7 @@ int RawMDHandler::init() {
       [this](const auto& task) { return makeAsyncTask(task); },
       [](auto& asyncTask, auto taskSpecificThreadPoolSize) {
         InitTopicInfo(asyncTask->task_);
+        LOG_T("Init task of topic {}", asyncTask->task_->topic_);
         const auto threadNo =
             asyncTask->task_->topicHash_ % taskSpecificThreadPoolSize;
         return threadNo;
@@ -82,25 +83,29 @@ void RawMDHandler::handle(RawMDAsyncTaskSPtr& asyncTask) {
       break;
 
     case MsgType::Tickers:
-      if (handleMDTickers(asyncTask) && saveMarketData_) {
+      if (handleMDTickers(asyncTask) && saveMarketData_ &&
+          Config::get_const_instance().isSimedMode() == false) {
         mdSvc_->getMDStorageSvc()->dispatch(asyncTask);
       }
       break;
 
     case MsgType::Trades:
-      if (handleMDTrades(asyncTask) && saveMarketData_) {
+      if (handleMDTrades(asyncTask) && saveMarketData_ &&
+          Config::get_const_instance().isSimedMode() == false) {
         mdSvc_->getMDStorageSvc()->dispatch(asyncTask);
       }
       break;
 
     case MsgType::Orders:
-      if (handleMDOrders(asyncTask) && saveMarketData_) {
+      if (handleMDOrders(asyncTask) && saveMarketData_ &&
+          Config::get_const_instance().isSimedMode() == false) {
         mdSvc_->getMDStorageSvc()->dispatch(asyncTask);
       }
       break;
 
     case MsgType::Books:
-      if (handleMDBooks(asyncTask) && saveMarketData_) {
+      if (handleMDBooks(asyncTask) && saveMarketData_ &&
+          Config::get_const_instance().isSimedMode() == false) {
         mdSvc_->getMDStorageSvc()->dispatch(asyncTask);
       }
       break;

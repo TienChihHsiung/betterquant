@@ -43,9 +43,12 @@ class Config : public ConfigBase,
 
  public:
   ApiInfoSPtr getApiInfo() const { return apiInfo_; }
+  bool isRealMode() const { return isRealMode_; }
+  bool isSimedMode() const { return !isRealMode(); }
 
  private:
   ApiInfoSPtr apiInfo_{nullptr};
+  bool isRealMode_{false};
 };
 
 }  // namespace bq::md::svc

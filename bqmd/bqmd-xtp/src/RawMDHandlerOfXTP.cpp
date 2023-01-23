@@ -36,6 +36,31 @@
 
 namespace bq::md::svc::xtp {
 
+RawMDSPtr RawMDHandlerOfXTP::makeRawMD(MsgType msgType, const void* data,
+                                       std::size_t dataLen) {
+  switch (msgType) {
+    case MsgType::NewSymbol:
+      return std::make_shared<RawMD>(MsgType::NewSymbol, data, dataLen);
+
+    case MsgType::Tickers:
+      return std::make_shared<RawMD>(MsgType::Tickers, data, dataLen);
+
+    case MsgType::Trades:
+      return std::make_shared<RawMD>(MsgType::Trades, data, dataLen);
+
+    case MsgType::Orders:
+      return std::make_shared<RawMD>(MsgType::Orders, data, dataLen);
+
+    case MsgType::Books:
+      return std::make_shared<RawMD>(MsgType::Books, data, dataLen);
+
+    default:
+      return nullptr;
+  }
+
+  return nullptr;
+}
+
 std::tuple<int, RawMDAsyncTaskSPtr> RawMDHandlerOfXTP::makeAsyncTask(
     const RawMDSPtr& task) {
   switch (task->msgType_) {

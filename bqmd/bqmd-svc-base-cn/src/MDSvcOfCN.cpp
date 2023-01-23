@@ -11,6 +11,8 @@
 #include "MDSvcOfCN.hpp"
 
 #include "Config.hpp"
+#include "MDCache.hpp"
+#include "MDPlayback.hpp"
 #include "MDStorageSvc.hpp"
 #include "RawMDHandler.hpp"
 #include "SHMIPCConst.hpp"
@@ -72,7 +74,10 @@ int MDSvcOfCN::doInit() {
     return statusCode;
   }
 
-  if (CONFIG["simedMode"]["enable"].as<bool>(false)) {
+  if (Config::get_const_instance().isSimedMode()) {
+    mdCache_ = std::make_shared<MDCache>(this);
+    mdPlayback_ = std::make_shared<MDPlayback>(this);
+  } else {
     mdStorageSvc_ = std::make_shared<MDStorageSvc>(this);
     if (const auto statusCode = mdStorageSvc_->init(); statusCode != 0) {
       return statusCode;
@@ -187,7 +192,9 @@ void MDSvcOfCN::handleTopicNeedSubAndUnSub(
   }
 
   if (!marketDataCondNeedSub.empty()) {
-    doSub(marketDataCondNeedSub);
+    if (Config::get_const_instance().isSimedMode() == false) {
+      doSub(marketDataCondNeedSub);
+    }
   }
 
   MarketDataCondGroup marketDataCondNeedUnSub;
@@ -201,7 +208,9 @@ void MDSvcOfCN::handleTopicNeedSubAndUnSub(
   }
 
   if (!marketDataCondNeedUnSub.empty()) {
-    doUnSub(marketDataCondNeedUnSub);
+    if (Config::get_const_instance().isSimedMode() == false) {
+      doUnSub(marketDataCondNeedUnSub);
+    }
   }
 }
 
@@ -209,7 +218,7 @@ int MDSvcOfCN::beforeRun() {
   const auto apiInfo = Config::get_const_instance().getApiInfo();
   LOG_I("Run market data service of {}.", apiInfo->apiName_);
 
-  if (CONFIG["simedMode"]["enable"].as<bool>(false)) {
+  if (Config::get_const_instance().isSimedMode() == false) {
     mdStorageSvc_->start();
   }
   rawMDHandler_->start();
@@ -217,12 +226,49 @@ int MDSvcOfCN::beforeRun() {
     const auto& shmSrv = marketCode2SHMSrv.second;
     shmSrv->start();
   }
+
+  if (Config::get_const_instance().isSimedMode()) {
+    const auto statusCode = startGatewayOfSim();
+    if (statusCode != 0) {
+      LOG_E("Before run failed because of start gateway of sim failed.");
+      return statusCode;
+    }
+  } else {
+    const auto statusCode = startGateway();
+    if (statusCode != 0) {
+      LOG_E("Before run failed because of start gateway failed.");
+      return statusCode;
+    }
+  }
+
+  return 0;
+}
+
+int MDSvcOfCN::startGatewayOfSim() {
+  const auto statusCode = mdCache_->start();
+  if (statusCode != 0) {
+    return statusCode;
+  }
+  mdPlayback_->start();
   return 0;
 }
 
 int MDSvcOfCN::afterRun() {
   topicMgr_->start();
   return SvcBase::afterRun();
+}
+
+void MDSvcOfCN::beforeExit(const boost::system::error_code* ec, int signalNum) {
+  if (Config::get_const_instance().isSimedMode()) {
+    stopGatewayOfSim();
+  } else {
+    stopGateway();
+  }
+}
+
+void MDSvcOfCN::stopGatewayOfSim() {
+  mdPlayback_->stop();
+  mdCache_->stop();
 }
 
 void MDSvcOfCN::doExit(const boost::system::error_code* ec, int signalNum) {
@@ -234,7 +280,7 @@ void MDSvcOfCN::doExit(const boost::system::error_code* ec, int signalNum) {
   }
   rawMDHandler_->stop();
 
-  if (CONFIG["simedMode"]["enable"].as<bool>(false)) {
+  if (Config::get_const_instance().isSimedMode() == false) {
     mdStorageSvc_->flushMDToTDEng();
     mdStorageSvc_->stop();
   }

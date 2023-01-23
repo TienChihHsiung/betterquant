@@ -18,19 +18,20 @@ struct MarketDataCond;
 using MarketDataCondSPtr = std::shared_ptr<MarketDataCond>;
 }  // namespace bq
 
-namespace bq::md {
+namespace bq::md::svc {
 
-struct MarketDataOfSim;
+struct MarketDataOfSim {
+  std::uint64_t localTs_;
+  MDType mdType_;
+  std::string data_;
+  std::uint64_t delay_;
+};
 using MarketDataOfSimSPtr = std::shared_ptr<MarketDataOfSim>;
 
-using Ts2MarketDataOfSimGroup =
-    std::multimap<std::uint64_t, MarketDataOfSimSPtr>;
+using Ts2MarketDataOfSimGroup = std::map<std::uint64_t, MarketDataOfSimSPtr>;
 using Ts2MarketDataOfSimGroupSPtr = std::shared_ptr<Ts2MarketDataOfSimGroup>;
 
-using Ts2HisMDGroup = std::multimap<std::uint64_t, std::string>;
-using Ts2HisMDGroupSPtr = std::shared_ptr<Ts2HisMDGroup>;
-
-class MDSim;
+class MDSvcOfCN;
 
 class MDCache;
 using MDCacheSPtr = std::shared_ptr<MDCache>;
@@ -42,7 +43,7 @@ class MDCache {
   MDCache(const MDCache&&) = delete;
   MDCache& operator=(const MDCache&&) = delete;
 
-  explicit MDCache(MDSim* mdSim) : mdSim_(mdSim) {}
+  explicit MDCache(MDSvcOfCN* mdSvc) : mdSvc_(mdSvc) {}
 
  public:
   int start();
@@ -55,20 +56,14 @@ class MDCache {
   void cacheMDHis();
   void cache1BatchOfHisMD();
 
-  Ts2MarketDataOfSimGroupSPtr makeMDCacheOfCurTopic(
-      const MarketDataCondSPtr& marketDataCond,
-      const Ts2HisMDGroupSPtr& ts2HisMDGroup);
-
-  MarketDataOfSimSPtr makeMarketDataOfTrades(const std::string& line);
-  MarketDataOfSimSPtr makeMarketDataOfBooks(const std::string& line);
-  MarketDataOfSimSPtr makeMarketDataOfCandle(const std::string& line);
-  MarketDataOfSimSPtr makeMarketDataOfTickers(const std::string& line);
+  Ts2MarketDataOfSimGroupSPtr makeMDCacheOfCurBatch(std::uint64_t startLocalTs,
+                                                    std::uint64_t endLocalTs);
 
   void calcDelayBetweenAdjacentMD(
       Ts2MarketDataOfSimGroupSPtr& mdCacheOfCurBatch);
 
  private:
-  MDSim* mdSim_{nullptr};
+  MDSvcOfCN* mdSvc_{nullptr};
 
   std::atomic_bool keepRunning_{false};
   std::unique_ptr<std::thread> threadCacheMDHis_{nullptr};
@@ -78,12 +73,13 @@ class MDCache {
 
   std::uint32_t secOfCacheMD_;
 
+  std::uint64_t exchTsStart_;
+  std::uint64_t exchTsEnd_;
+
   std::uint64_t tsStart_;
   std::uint64_t tsEnd_;
 
   std::uint64_t tsStartOfCurCache_;
-
-  std::string mdRootPath_;
 };
 
-}  // namespace bq::md
+}  // namespace bq::md::svc

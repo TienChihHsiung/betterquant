@@ -98,7 +98,8 @@ void QueryHisMD::queryBetween2Ts(
   const auto maxNumOfRecReturned =
       CONFIG["maxNumOfRecReturned"].as<std::uint32_t>(10000);
   const auto [statusCode, statusMsg, recNum, recSet] =
-      queryDataFromTDEng(sql, maxNumOfRecReturned);
+      tdeng::QueryDataFromTDEng(WebSrv::get_const_instance().getTDEngConnpool(),
+                                sql, maxNumOfRecReturned);
   const auto rsp = makeHttpResponse(makeBody(statusCode, statusMsg, recSet));
   callback(rsp);
   return;
@@ -173,7 +174,8 @@ void QueryHisMD::queryBeforeTs(
       fmt::format("SELECT * FROM {}.{} where exchTs <= {} limit {};",
                   stableName, tableName, ts, num);
   const auto [statusCode, statusMsg, recNum, recSet] =
-      queryDataFromTDEng(sql, maxNumOfRecReturned);
+      tdeng::QueryDataFromTDEng(WebSrv::get_const_instance().getTDEngConnpool(),
+                                sql, maxNumOfRecReturned);
   if (recNum < num) {
     const auto rsp = makeHttpResponse(makeBody(
         SCODE_HIS_MD_RECORDS_LESS_THAN_NUM_OF_QURIES,
@@ -255,7 +257,8 @@ void QueryHisMD::queryAfterTs(
       fmt::format("SELECT * FROM {}.{} where exchTs >= {} limit {};",
                   stableName, tableName, ts, num);
   const auto [statusCode, statusMsg, recNum, recSet] =
-      queryDataFromTDEng(sql, maxNumOfRecReturned);
+      tdeng::QueryDataFromTDEng(WebSrv::get_const_instance().getTDEngConnpool(),
+                                sql, maxNumOfRecReturned);
   if (recNum < num) {
     const auto rsp = makeHttpResponse(makeBody(
         SCODE_HIS_MD_RECORDS_LESS_THAN_NUM_OF_QURIES,
@@ -266,34 +269,6 @@ void QueryHisMD::queryAfterTs(
   const auto rsp = makeHttpResponse(makeBody(statusCode, statusMsg, recSet));
   callback(rsp);
   return;
-}
-
-std::tuple<int, std::string, int, std::string> QueryHisMD::queryDataFromTDEng(
-    const std::string &sql, std::uint32_t maxRecNum) const {
-  int statusCode = 0;
-  std::string statusMsg;
-  int recNum = 0;
-  std::string recSet;
-
-  const auto conn =
-      WebSrv::get_const_instance().getTDEngConnpool()->getIdleConn();
-  const auto res = taos_query(conn->taos_, sql.c_str());
-  const auto errorCode = taos_errno(res);
-  if (errorCode == 0) {
-    std::tie(statusCode, recNum, recSet) =
-        tdeng::GetJsonDataFromRes(res, maxRecNum);
-    if (statusCode != 0) recSet = "";
-    statusMsg = GetStatusMsg(statusCode);
-  } else {
-    statusCode = SCODE_TDENG_EXEC_SQL_FAILED;
-    statusMsg = fmt::format("Exec sql of tdeng failed. [{} - {}]", errorCode,
-                            taos_errno(res));
-    LOG_W(statusMsg);
-  }
-  taos_free_result(res);
-  WebSrv::get_const_instance().getTDEngConnpool()->giveBackConn(conn);
-
-  return {statusCode, statusMsg, recNum, recSet};
 }
 
 std::string QueryHisMD::makeBody(int statusCode, const std::string &statusMsg,

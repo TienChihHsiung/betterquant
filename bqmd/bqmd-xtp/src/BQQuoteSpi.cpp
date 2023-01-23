@@ -71,8 +71,8 @@ void BQQuoteSpi::OnQueryAllTickersFullInfo(XTPQFI *ticker_info,
         ticker_info->ticker_name);
 
   if (CONFIG["enableSymbolTableMaint"].as<bool>(false)) {
-    auto rawMD = std::make_shared<RawMD>(MsgType::NewSymbol, ticker_info,
-                                         sizeof(XTPQFI));
+    auto rawMD = mdSvc_->getRawMDHandler()->makeRawMD(
+        MsgType::NewSymbol, ticker_info, sizeof(XTPQFI));
     mdSvc_->getRawMDHandler()->dispatch(rawMD);
   }
 
@@ -233,21 +233,21 @@ void BQQuoteSpi::OnDepthMarketData(XTPMD *market_data, int64_t bid1_qty[],
                                    int32_t bid1_count, int32_t max_bid1_count,
                                    int64_t ask1_qty[], int32_t ask1_count,
                                    int32_t max_ask1_count) {
-  auto rawMD =
-      std::make_shared<RawMD>(MsgType::Tickers, market_data, sizeof(XTPMD));
+  auto rawMD = mdSvc_->getRawMDHandler()->makeRawMD(MsgType::Tickers,
+                                                    market_data, sizeof(XTPMD));
   mdSvc_->getRawMDHandler()->dispatch(rawMD);
 }
 
 void BQQuoteSpi::OnTickByTick(XTPTBT *tbt_data) {
   switch (tbt_data->type) {
     case XTP_TBT_TRADE: {
-      auto rawMD =
-          std::make_shared<RawMD>(MsgType::Trades, tbt_data, sizeof(XTPTBT));
+      auto rawMD = mdSvc_->getRawMDHandler()->makeRawMD(
+          MsgType::Trades, tbt_data, sizeof(XTPTBT));
       mdSvc_->getRawMDHandler()->dispatch(rawMD);
     } break;
     case XTP_TBT_ENTRUST: {
-      auto rawMD =
-          std::make_shared<RawMD>(MsgType::Orders, tbt_data, sizeof(XTPTBT));
+      auto rawMD = mdSvc_->getRawMDHandler()->makeRawMD(
+          MsgType::Orders, tbt_data, sizeof(XTPTBT));
       mdSvc_->getRawMDHandler()->dispatch(rawMD);
     } break;
     default:
@@ -257,8 +257,8 @@ void BQQuoteSpi::OnTickByTick(XTPTBT *tbt_data) {
 
 void BQQuoteSpi::OnOrderBook(XTPOB *order_book) {
   LOG_I("Recv order book of {}.", order_book->ticker);
-  auto rawMD =
-      std::make_shared<RawMD>(MsgType::Books, order_book, sizeof(XTPOB));
+  auto rawMD = mdSvc_->getRawMDHandler()->makeRawMD(MsgType::Books, order_book,
+                                                    sizeof(XTPOB));
   mdSvc_->getRawMDHandler()->dispatch(rawMD);
 }
 

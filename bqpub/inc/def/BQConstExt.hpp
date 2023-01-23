@@ -54,7 +54,7 @@ const static std::string HIS_MD_INDEX_BY_LT_EXT = "lt";
 
 const static std::string SUFFIX_OF_CANDLE_DETAIL = "detail";
 
-const static std::uint32_t MAX_SEC_OF_CACHE_MD_SIM = 600;
+const static std::uint32_t MAX_SEC_OF_CACHE_MD_SIM = 3600;
 
 const static std::string SEP_OF_TDENG_TABLE_NAME = "_";
 const static std::string TBENG_DBNAME_OF_MD = "marketData";

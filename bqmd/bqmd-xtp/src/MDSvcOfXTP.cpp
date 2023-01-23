@@ -47,13 +47,7 @@ int MDSvcOfXTP::beforeInit() {
   return 0;
 }
 
-int MDSvcOfXTP::doRun() {
-  if (const auto ret = startGateway(); ret != 0) {
-    LOG_W("Run market data service of xtp failed.");
-    return ret;
-  }
-  return 0;
-}
+int MDSvcOfXTP::doRun() { return 0; }
 
 int MDSvcOfXTP::startGateway() {
   if (api_) {
@@ -104,8 +98,7 @@ int MDSvcOfXTP::startGateway() {
   return 0;
 }
 
-void MDSvcOfXTP::beforeExit(const boost::system::error_code* ec,
-                            int signalNum) {
+void MDSvcOfXTP::stopGateway() {
   if (api_) {
     api_->Release();
     api_ = nullptr;

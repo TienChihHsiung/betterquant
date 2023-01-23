@@ -28,6 +28,8 @@ struct RawMD;
 using RawMDSPtr = std::shared_ptr<RawMD>;
 using RawMDAsyncTask = AsyncTask<RawMDSPtr>;
 using RawMDAsyncTaskSPtr = std::shared_ptr<RawMDAsyncTask>;
+
+enum class MsgType : std::uint8_t;
 }  // namespace bq
 
 namespace bq::md {
@@ -51,6 +53,10 @@ class RawMDHandler {
 
  public:
   int init();
+
+ public:
+  virtual RawMDSPtr makeRawMD(MsgType msgType, const void* data,
+                              std::size_t dataLen) = 0;
 
  private:
   virtual std::tuple<int, RawMDAsyncTaskSPtr> makeAsyncTask(
